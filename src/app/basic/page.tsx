@@ -1,5 +1,5 @@
-import BasicFeature from '@/components/basic/basic-feature'
+import AceyFeature from '@/components/acey/acey-feature'
 
 export default function Page() {
-  return <BasicFeature />;
+  return <AceyFeature />;
 }

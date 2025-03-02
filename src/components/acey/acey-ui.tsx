@@ -1,9 +1,9 @@
 'use client';
 
-import { useBasicProgram } from './basic-data-access'
+import { useAceyProgram } from './acey-data-access'
 
 export function BasicCreate() {
-  const { greet } = useBasicProgram();
+  const { greet } = useProgram();
 
   return (
     <button
