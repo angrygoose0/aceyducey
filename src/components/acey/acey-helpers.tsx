@@ -52,6 +52,16 @@ export const fromLamportsDecimals = (amount: BN): number => {
     return amount.toNumber() / BILLION.toNumber();
 };
 
+export const getCardSvgFilename = (number: number): string => {
+    if (number < 1 || number > 52) return "back.svg"; // Default card back
+  
+    const suits = ["c", "d", "h", "s"]; // Clubs, Diamonds, Hearts, Spades
+    const rank = ((number - 1) % 13) + 1; // 1-13 for each suit
+    const suit = suits[Math.floor((number - 1) / 13)]; // Determine suit
+  
+    return `${rank}${suit}.svg`; // Example: "1c.svg", "qc.svg", "10s.svg"
+  };
+
 
 export function simplifyBN(value: BN): string {
     const thresholds = [
