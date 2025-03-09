@@ -2,6 +2,7 @@ use anchor_lang::{
     prelude::*,
     solana_program::{
         pubkey::Pubkey,
+        keccak,
     },
     system_program,
 };
@@ -18,10 +19,9 @@ use raydium_cpmm_cpi::{
 };
 
 
+pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-
-
-declare_id!("6z68wfurCMYkZG51s1Et9BJEd9nJGUusjHXNt4dGbNNF");
+declare_id!("GEo5Z62CmpKJm156BqaKZNYffGd8ppibGAad2fgYATYG");
 
 #[program]
 pub mod acey {
@@ -30,10 +30,12 @@ pub mod acey {
     pub const ENTRY_PRICE: u64 = 100_000_000; //0.1 sol
     pub const ANTE_PRICE: u64 = 10_000_000; //0.01 sol
 
-    pub const WAIT_TIME: u64 = 120; //2 minutes
+    pub const WAIT_TIME: i64 = 120; //2 minutes
 
-    pub const ADMIN: Pubkey =
-        pubkey!("SAFE3yY1gvuD78yaXqxnSKuUf5fYCxLb2TVzpuPdkHM");
+    pub const ADMIN: Pubkey = pubkey!("SAFE3yY1gvuD78yaXqxnSKuUf5fYCxLb2TVzpuPdkHM");
+
+    pub const CLUBMOON_MINT: Pubkey = pubkey!("D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMAb6zeZhZYgoos");
+    pub const SOLANA_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
     pub fn init_game(
         ctx: Context<InitializeGame>,
@@ -51,8 +53,26 @@ pub mod acey {
 
         game_account.current_bet = 0;
 
-        game_account.players = Vec::new();
         game_account.player_no = 0;
+        game_account.current_player_id = 0;
+        game_account.currently_playing = 0;
+
+
+        Ok(())
+    }
+
+    pub fn init_treasuries(
+        ctx: Context<InitializeTreasuries>,
+    ) -> Result<()> {
+
+        require!(
+            ctx.accounts.clubmoon_mint.key() == CLUBMOON_MINT,
+            CustomError::InvalidMint,
+        );
+        require!(
+            ctx.accounts.solana_mint.key() == SOLANA_MINT,
+            CustomError::InvalidMint,
+        );
 
 
         Ok(())
@@ -63,13 +83,22 @@ pub mod acey {
         user_name: String,
     ) -> Result<()> {
         let game_account = &mut ctx.accounts.game_account;
-        let new_id: u8 = game_account.player_no.wrapping_add(1);
+        let new_id: u64 = game_account.player_no + 1;
 
         let current_time = Clock::get()?.unix_timestamp as i64;
 
         game_account.player_no = new_id;
-        game_account.players.push(new_id);
+
+        if game_account.currently_playing == 0 {
+            game_account.current_player_id = new_id;
+            game_account.next_skip_time = current_time + WAIT_TIME;
+        }
+
+        game_account.currently_playing += 1;
+
         game_account.pot_amount += game_account.entry_price;
+
+        
 
         let player_account = &mut ctx.accounts.player_account;
         player_account.user = ctx.accounts.signer.key();
@@ -97,18 +126,32 @@ pub mod acey {
     }
 
     pub fn player_ante(
-        ctx: Context<PlayerAnte>,
+        ctx: Context<PlayerAnte>
     ) -> Result<()> {
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &ctx.accounts.player_account;
 
         require!(
-            game_account.players.first().copied() == Some(player_account.id),
+            game_account.current_player_id == player_account.id,
             CustomError::Unauthorized
         );
-        
-        game_account.pot_amount += game_account.ante_price;
 
+        require!(
+            game_account.card_1 == 0,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            game_account.card_2 == 0,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            game_account.card_3 == 0,
+            CustomError::Unauthorized
+        );
+
+        game_account.pot_amount += game_account.ante_price;
 
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -117,7 +160,7 @@ pub mod acey {
                 to: ctx.accounts.treasury_solana_account.to_account_info().clone(),
             },
         );
-        system_program::transfer(cpi_context, game_account.entry_price)?; //sol transferred to treasury
+        system_program::transfer(cpi_context, game_account.entry_price)?; // sol transferred to treasury
 
         sync_native(CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -126,8 +169,26 @@ pub mod acey {
             },
         ))?;
 
-        //card_1 picked
-        //card_2 picked
+        // Get the current timestamp
+        let clock = Clock::get()?;
+        let timestamp = clock.unix_timestamp as u64;
+
+        // Hash the timestamp
+        let hash = keccak::hash(&timestamp.to_le_bytes());
+
+        // Generate first card between 1 and 52
+        let card1 = (hash.0[0] % 52) + 1;
+        let mut card2 = (hash.0[1] % 52) + 1;
+
+        // Ensure card1 and card2 are unique (keep regenerating until they are different)
+        let mut index = 2;
+        while card1 == card2 {
+            card2 = (hash.0[index % 32] % 52) + 1;
+            index += 1;
+        }
+
+        game_account.card_1 = card1;
+        game_account.card_2 = card2;
 
         Ok(())
     }
@@ -145,7 +206,22 @@ pub mod acey {
         );
 
         require!(
-            game_account.players.first().copied() == Some(player_account.id),
+            game_account.current_player_id == player_account.id,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            game_account.card_1 != 0,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            game_account.card_2 != 0,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            game_account.card_3 == 0,
             CustomError::Unauthorized
         );
 
@@ -168,47 +244,160 @@ pub mod acey {
             },
         ))?;
 
+        // Get the current timestamp
+        let clock = Clock::get()?;
+        let timestamp = clock.unix_timestamp as u64;
+
+        // Hash the timestamp
+        let hash = keccak::hash(&timestamp.to_le_bytes());
+
+        let mut card3 = (hash.0[0] % 52) + 1;
+
+        
+        let mut index = 1;
+        while card3 == game_account.card_1 || card3 == game_account.card_2 {
+            card3 = (hash.0[index % 32] % 52) + 1;
+            index += 1;
+        }
+
+        game_account.card_3 = card3;
+
         Ok(())
     }
 
     pub fn player_claim(
-        ctx: Context<PlayerJoin>,
+        ctx: Context<PlayerClaim>,
     ) -> Result<()> {
+
+        require!(
+            ctx.accounts.clubmoon_mint.key() == CLUBMOON_MINT,
+            CustomError::InvalidMint,
+        );
+        require!(
+            ctx.accounts.solana_mint.key() == SOLANA_MINT,
+            CustomError::InvalidMint,
+        );
 
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &ctx.accounts.player_account;
 
         require!(
-            game_account.players.first().copied() == Some(player_account.id),
+            game_account.current_player_id == player_account.id,
             CustomError::Unauthorized
         );
 
-        // if win, change to clubmoon and give it to them
+        require!(
+            ctx.remaining_accounts.len() == game_account.currently_playing as usize,
+            CustomError::Unauthorized
+        );
 
-        // if lose, nothing happens.
+        let card1 = ((game_account.card_1 - 1) % 13) + 1;
+        let card2 = ((game_account.card_2 - 1) % 13) + 1;
+        let card3 = ((game_account.card_3 - 1) % 13) + 1;
+
+        // Ensure we find the lower and higher values correctly
+        let low = card1.min(card2);
+        let high = card1.max(card2);
+
+        let game_account_key = game_account.key();
+
+        let seeds = &["solana".as_bytes(), game_account_key.as_ref(), &[ctx.bumps.treasury_solana_account]];
+        let signer: &[&[&[u8]]] = &[&seeds[..]];
+
+        // Check if card3 is within the inclusive range [low, high]
+        if (card3 >= low) && (card3 <= high) {
+            // WIN condition
+            let cpi_accounts = cpi::accounts::Swap {
+                payer: ctx.accounts.treasury_solana_account.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+                amm_config: ctx.accounts.amm_config.to_account_info(),
+                pool_state: ctx.accounts.pool_state.to_account_info(),
+                input_token_account: ctx.accounts.treasury_solana_account.to_account_info(),
+                output_token_account: ctx.accounts.user_clubmoon_account.to_account_info(),
+                input_vault: ctx.accounts.input_vault.to_account_info(),
+                output_vault: ctx.accounts.output_vault.to_account_info(),
+                input_token_program: ctx.accounts.token_program.to_account_info(),
+                output_token_program: ctx.accounts.token_program.to_account_info(),
+                input_token_mint: ctx.accounts.solana_mint.to_account_info(),
+                output_token_mint: ctx.accounts.clubmoon_mint.to_account_info(),
+                observation_state: ctx.accounts.observation_state.to_account_info(),
+            };
+            let cpi_context = CpiContext::new_with_signer(
+                ctx.accounts.cp_swap_program.to_account_info(), 
+                cpi_accounts,
+                &signer,
+            );
+            cpi::swap_base_input(cpi_context, game_account.current_bet, 0);
+
+
+            msg!("You won! card3 ({}) is between {} and {}", card3, low, high);
+        } else {
+            // LOSE condition
+            msg!("You lost. card3 ({}) is NOT between {} and {}", card3, low, high);
+        }
 
         game_account.current_bet = 0;
 
-        if !game_account.players.is_empty() {
-            if let Some(first_player) = game_account.players.first().cloned() {
-                game_account.players.remove(0); // Remove the first player
-                game_account.players.push(first_player); // Push it to the back
-            }
-        }
+        game_account.card_1 = 0;
+        game_account.card_2 = 0;
+        game_account.card_3 = 0;
 
+        let next_player_id = get_next_player_id(
+            game_account.current_player_id, 
+            game_account.key(), 
+            &ctx.remaining_accounts
+        )?; 
+
+
+        game_account.current_player_id = next_player_id;
+
+        let current_time = Clock::get()?.unix_timestamp as i64;
+        game_account.next_skip_time = current_time + WAIT_TIME;
+        
         Ok(())
+
     }
 
     pub fn player_leave(
         ctx: Context<PlayerLeave>
     ) -> Result<()> {
         let game_account = &mut ctx.accounts.game_account;
-        let player_account = &ctx.accounts.closing_player_account;
+        let closing_player_account = &ctx.accounts.closing_player_account;
 
         require!(
-            game_account.players.first().copied() == Some(player_account.id),
+            ctx.remaining_accounts.len() == game_account.currently_playing as usize,
             CustomError::Unauthorized
         );
+
+        require!(
+            closing_player_account.game_account == game_account.key(),
+            CustomError::Unauthorized
+        );
+
+        require!(
+            closing_player_account.user == ctx.accounts.signer.key(),
+            CustomError::Unauthorized
+        );
+
+        if game_account.current_player_id == closing_player_account.id {
+            game_account.card_1 = 0;
+            game_account.card_2 = 0;
+            game_account.card_3 = 0;
+            game_account.current_bet = 0;
+
+            let next_player_id = get_next_player_id(
+                game_account.current_player_id, 
+                game_account.key(), 
+                &ctx.remaining_accounts
+            )?; 
+            
+            game_account.current_player_id = next_player_id;
+
+            let current_time = Clock::get()?.unix_timestamp as i64;
+            game_account.next_skip_time = current_time + WAIT_TIME;
+        }
+        
+        game_account.currently_playing -= 1;
 
         Ok(())
 
@@ -225,7 +414,12 @@ pub mod acey {
         let current_time = Clock::get()?.unix_timestamp as i64;
 
         require!(
-            game_account.players.contains(&closing_player_account.id),
+            current_time >= game_account.next_skip_time,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            ctx.remaining_accounts.len() == game_account.currently_playing as usize,
             CustomError::Unauthorized
         );
 
@@ -234,23 +428,69 @@ pub mod acey {
             CustomError::Unauthorized
         );
 
-        if closing_player_account.user == ctx.accounts.signer.key() {
-            // Remove the player ID from the `players` vector
-            game_account.players.retain(|&id| id != closing_player_account.id);
-         /* } else { // if time has passed kicking time
-            */
-        } 
+        require!(
+            game_account.current_player_id == closing_player_account.id,
+            CustomError::Unauthorized
+        );
 
+        game_account.card_1 = 0;
+        game_account.card_2 = 0;
+        game_account.card_3 = 0;
+        game_account.current_bet = 0;
 
-        
+        let next_player_id = get_next_player_id(
+            game_account.current_player_id, 
+            game_account.key(), 
+            &ctx.remaining_accounts
+        )?; 
 
-        
-
-        
-
+        game_account.current_player_id = next_player_id;
+        let current_time = Clock::get()?.unix_timestamp as i64;
+        game_account.next_skip_time = current_time + WAIT_TIME;
+    
+        game_account.currently_playing -= 1;
 
         Ok(())
     }
+}
+
+fn get_next_player_id(
+    current_player_id: u64,
+    game_account_key: Pubkey,
+    remaining_accounts: &[AccountInfo],
+) -> Result<u64> {
+    let mut next_player_id: Option<u64> = None;
+    let mut min_id: Option<u64> = None;
+
+    for account in remaining_accounts.iter() {
+        let data = account.try_borrow_data().map_err(|_| CustomError::Unauthorized)?;
+
+        let remaining_player_account = PlayerAccount::try_deserialize(&mut &data[..])
+            .map_err(|_| CustomError::Unauthorized)?;
+
+        // ✅ Fail immediately if an unauthorized account is found
+        require!(
+            remaining_player_account.game_account == game_account_key,
+            CustomError::Unauthorized
+        );
+
+        let remaining_player_id = remaining_player_account.id;
+
+        // Find the next valid player ID
+        if remaining_player_id > current_player_id {
+            if next_player_id.is_none() || remaining_player_id < next_player_id.unwrap() {
+                next_player_id = Some(remaining_player_id);
+            }
+        }
+
+        // Track the smallest ID in case we need to wrap around
+        if min_id.is_none() || remaining_player_id < min_id.unwrap() {
+            min_id = Some(remaining_player_id);
+        }
+    }
+
+    // Return the next valid ID, or wrap around to the smallest ID
+    Ok(next_player_id.or(min_id).unwrap_or(current_player_id))
 }
 
 #[derive(Accounts)]
@@ -265,15 +505,30 @@ pub struct InitializeGame<'info> {
         seeds = [b"game"],
         bump,
     )]
-    pub game_account: Account<'info, GameAccount>,
+    pub game_account: Box<Account<'info, GameAccount>>,
+
+    pub system_program: Program<'info, System>,
+    
+}
+
+#[derive(Accounts)]
+pub struct InitializeTreasuries<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"game"],
+        bump,
+    )]
+    pub game_account: Box<Account<'info, GameAccount>>,
 
     
     #[account(mut)]
-    pub clubmoon_mint: InterfaceAccount<'info, Mint>,
+    pub clubmoon_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut)]
-    pub solana_mint: InterfaceAccount<'info, Mint>,
-
+    pub solana_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
         init,
@@ -353,6 +608,26 @@ pub struct PlayerLeave<'info> {
 }
 
 #[derive(Accounts)]
+pub struct KickPlayer<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"game"],
+        bump,
+    )]
+    pub game_account: Account<'info, GameAccount>,
+
+    #[account(
+        mut,
+        close = signer,
+    )]
+    pub closing_player_account: Account<'info, PlayerAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct PlayerAnte<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -383,6 +658,102 @@ pub struct PlayerAnte<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct PlayerClaim<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"game"],
+        bump,
+    )]
+    pub game_account: Account<'info, GameAccount>,
+
+    #[account(
+        mut,
+        seeds = [b"player", game_account.key().as_ref(), signer.key().as_ref()],
+        bump,
+    )]
+    pub player_account: Account<'info, PlayerAccount>,
+
+    #[account(address = output_vault.mint)]
+    pub clubmoon_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(address = input_vault.mint)]
+    pub solana_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [b"solana", game_account.key().as_ref()],
+        bump,
+    )]
+    pub treasury_solana_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        seeds = [b"clubmoon", game_account.key().as_ref()],
+        bump,
+    )]
+    pub treasury_clubmoon_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        init_if_needed,
+        payer = signer,
+        associated_token::mint = clubmoon_mint,
+        associated_token::authority = signer,
+    )]
+    pub user_clubmoon_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    
+    #[account(
+        address = RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET,
+    )]
+    pub cp_swap_program: Program<'info, RaydiumCpmm>,
+
+    
+
+    /// CHECK: pool vault and lp mint authority
+    #[account(
+        seeds = [
+          raydium_cpmm_cpi::AUTH_SEED.as_bytes(),
+        ],
+        seeds::program = cp_swap_program.key(),
+        bump,
+    )]
+    pub authority: UncheckedAccount<'info>,
+    
+
+    /// The factory state to read protocol fees
+    #[account(address = pool_state.load()?.amm_config)]
+    pub amm_config: Box<Account<'info, AmmConfig>>,
+
+    /// The program account of the pool in which the swap will be performed
+    #[account(mut)]
+    pub pool_state: AccountLoader<'info, PoolState>,
+
+    /// The vault token account for input token
+    #[account(
+        mut,
+        constraint = input_vault.key() == pool_state.load()?.token_0_vault || input_vault.key() == pool_state.load()?.token_1_vault
+    )]
+    pub input_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+  
+      /// The vault token account for output token
+      #[account(
+        mut,
+        constraint = output_vault.key() == pool_state.load()?.token_0_vault || output_vault.key() == pool_state.load()?.token_1_vault
+    )]
+    pub output_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(mut, address = pool_state.load()?.observation_key)]
+    pub observation_state: AccountLoader<'info, ObservationState>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+
+}
 
 #[account]
 #[derive(InitSpace)]
@@ -392,15 +763,16 @@ pub struct GameAccount { //8
     pub pot_amount: u64, //8
     pub next_skip_time: i64, //8
 
+    pub current_bet: u64, // 8
+
+    pub player_no: u64, //8  how many players have been through
+
+    pub current_player_id: u64, //8  id of player whos turn is now
+    pub currently_playing: u64, //8  how many players are playing rn
     pub card_1: u8, // 1
     pub card_2: u8, // 1
     pub card_3: u8, // 1
-
-    pub current_bet: u64, // 8
-
-    #[max_len(100)]  
-    pub players: Vec<u8>, //100
-    pub player_no: u8, //8  how many players have been through
+    _padding: [u8; 5], // Padding to align to 8 bytes
 }
 
 #[account]
@@ -409,9 +781,11 @@ pub struct PlayerAccount { //8
     pub user: Pubkey, //32
     pub game_account: Pubkey, //32
 
+    pub id: u64, //8
+
     #[max_len(100)]  
     pub user_name: String,
-    pub id: u8, //1
+    
 }
 
 
@@ -421,5 +795,6 @@ pub enum CustomError {
     Unauthorized,
     #[msg("Can't bet bigger than the pot")]
     BetBiggerThanPot,
-
+    #[msg("Wrong mint")]
+    InvalidMint,
 }
