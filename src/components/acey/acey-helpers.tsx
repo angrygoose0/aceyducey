@@ -4,16 +4,21 @@ import BN from "bn.js";
 {/* constants*/}
 export const ZERO = new BN(0);
 export const BILLION = new BN(10).pow(new BN(9));
-
 export const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
 
 export const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
-export const CLUBMOON_MINT = new PublicKey('11111111111111111111111111111111');
+
+export const CLUBMOON_MINT = new PublicKey('5gVSqhk41VA8U6U4Pvux6MSxFWqgptm3w58X9UTGpump');
+export const DEV_CLUBMOON_MINT = new PublicKey('D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMAb6zeZhZYgoos');
 
 export const RAYDIUM_DEVNET_CPMM_PROGRAM_ID = new PublicKey('CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW')
-export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+export const RAYDIUM_CPMM_PROGRAM_ID = new PublicKey('CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C')
 
-export const TREASURY_PUBLIC_KEY = new PublicKey("SAFE3yY1gvuD78yaXqxnSKuUf5fYCxLb2TVzpuPdkHM");
+export const AMM_CONFIG = new PublicKey('D4FPEruKEHrG5TenZ2mpDGEfu1iUvTiqBxvpU8HLBvC2')
+export const DEV_AMM_CONFIG = new PublicKey('9zSzfkYy6awexsHvmggeH36pfVUdDGyCcwmjT3AQPBj6')
+
+export const CLUBMOON_POOL_ID = new PublicKey('5SpsdLEnA64NTHLRw2iXAQ2bq4rknA5M7sLmcDbymJxc')
+export const DEV_CLUBMOON_POOL_ID = new PublicKey('5EE9nSoEP9QXyBHSL93BdWHDdCaj81mpEke8EGppKVa6')
 
 
 export const toLamports = (amount: BN): BN => {

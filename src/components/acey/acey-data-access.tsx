@@ -2,7 +2,7 @@
 
 import { ACEY_PROGRAM_ID as programId, getAceyProgram } from '@project/anchor'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import toast from 'react-hot-toast'
 import { useCluster } from '../cluster/cluster-data-access'
@@ -10,8 +10,12 @@ import { useAnchorProvider } from '../solana/solana-provider'
 import { useTransactionToast } from '../ui/ui-layout'
 import { ComputeBudgetProgram, PublicKey, Transaction } from '@solana/web3.js';
 import BN from 'bn.js';
-import { CLUBMOON_MINT, EMPTY_PUBLIC_KEY, ZERO } from './acey-helpers';
+import { CLUBMOON_MINT, DEV_AMM_CONFIG, DEV_CLUBMOON_MINT, DEV_CLUBMOON_POOL_ID, EMPTY_PUBLIC_KEY, RAYDIUM_CPMM_PROGRAM_ID, RAYDIUM_DEVNET_CPMM_PROGRAM_ID, ZERO } from './acey-helpers';
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, NATIVE_MINT, getAssociatedTokenAddress } from '@solana/spl-token';
+import { useEffect } from 'react';
+
+import { sha256 } from "js-sha256";
+import bs58 from 'bs58';
 
 export function useAceyProgram() {
   const { connection } = useConnection();
@@ -64,19 +68,47 @@ export function useInitGame() {
         });
         */
 
+        const gameSeeds = [Buffer.from("game")];
+        const gameAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
 
-        const init = await program.methods
+
+        const solanaTreasurySeeds = [
+          Buffer.from("solana"),
+          gameAccountKey.toBuffer(),
+        ];
+
+        const solanaTreasury = await PublicKey.findProgramAddressSync(
+          solanaTreasurySeeds,
+          programId,
+        )[0];
+
+        console.log(solanaTreasury.toString());
+
+
+        
+        const game = await program.methods
           .initGame()
           .accounts({
             signer:publicKey,
-            clubmoonMint: CLUBMOON_MINT,
-            solanaMint: NATIVE_MINT,
-            tokenProgram: TOKEN_PROGRAM_ID,
           })
-          .instruction();
+          .rpc();
 
+        
+
+        const treasury = await program.methods
+        .initTreasuries()
+        .accounts({
+          signer:publicKey,
+          clubmoonMint: DEV_CLUBMOON_MINT, //change to CLUBMOON_MINT
+          solanaMint: NATIVE_MINT,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+        /*
         const blockhashContext = await connection.getLatestBlockhashAndContext();
 
+        
         const transaction = new Transaction({
           feePayer: publicKey,
           blockhash: blockhashContext.value.blockhash,
@@ -84,12 +116,17 @@ export function useInitGame() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(init);
+          .add(game)
+          .add(treasury);
+
         const signature = await sendTransaction(transaction, connection, {
         });
+        
 
 
         return signature;
+        */
+        return;
 
       } catch (error) {
         console.error("Error during transaction processing:", error);
@@ -111,11 +148,96 @@ export function useInitGame() {
   };
 }
 
-export function usePlayerJoin() {
+export function useGameAccount() {
   const { program } = useAceyProgram();
   const transactionToast = useTransactionToast();
   const { connection } = useConnection();
   const { sendTransaction, publicKey } = useWallet();
+  const {cluster} = useCluster();
+  const queryClient = useQueryClient();
+
+  const gameSeeds = [Buffer.from("game")];
+  const gameAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
+
+  const gameAccountQuery = useQuery({
+    queryKey: ['gameAccount', { cluster, gameAccountKey }],
+    queryFn: async () => {
+      return program.account.gameAccount.fetch(gameAccountKey);
+    },
+  });
+
+  useEffect(() => {
+    const subscriptionId = connection.onAccountChange(
+      gameAccountKey,
+      async (updatedAccountInfo) => {
+        try {
+          const updatedData = await program.account.gameAccount.fetch(gameAccountKey);
+          // Update the query with the new data
+          queryClient.setQueryData(['gameAccount', { cluster, gameAccountKey }], updatedData);
+        } catch (error) {
+          console.error('Failed to fetch updated game account data:', error);
+        }
+      }
+    );
+
+    // Cleanup the subscription when the component unmounts or dependencies change
+    return () => {
+      connection.removeAccountChangeListener(subscriptionId);
+    };
+  }, [connection, gameAccountKey, program, cluster, queryClient]);
+
+
+  const playersQuery = useQuery({
+    queryKey: ['getAllLotteryAccountKeys'],
+    queryFn: async () => {
+      if (publicKey === null) {
+        throw new Error('Wallet not connected');
+      }
+
+      const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(
+        0,
+        8
+      );
+
+      const filters = [
+        {
+          memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) },
+        },
+
+        {
+          memcmp: { offset: 40, bytes: gameAccountKey.toBase58() },
+        },
+      ];
+
+      let offset = 72; //id
+      let length = 8;
+
+      const accounts = await connection.getProgramAccounts(programId, {
+        dataSlice: { offset, length },
+        filters,
+      });
+
+      const accountsWithSpecific = accounts.map(({ pubkey, account }) => {
+        const specific = new BN(account.data, 'le'); // Parse `id` as big int
+        return { pubkey, specific };
+      });
+
+
+
+      const sortedAccounts = accountsWithSpecific.sort((a, b) => a.specific.cmp(b.specific));
+
+      const accountKeys = sortedAccounts.map((account) => account.pubkey);
+
+      
+
+      return accountKeys;
+    },
+    refetchInterval: 10000, //10 seconds
+  });
+
+
+
+
   const playerJoin = useMutation<
     string,
     Error,
@@ -182,6 +304,8 @@ export function usePlayerJoin() {
       console.error('Toast error:', error);
     },
   });
+
+
 
   const playerAnte = useMutation<
     string,
@@ -251,10 +375,11 @@ export function usePlayerJoin() {
 
   const playerBet = useMutation<
     string,
-    Error
+    Error,
+    {betAmount:BN}
   >({
     mutationKey: ['buyToken'],
-    mutationFn: async () => {
+    mutationFn: async ({betAmount}) => {
       try {
         if (publicKey === null) {
           throw new Error('Wallet not connected');
@@ -277,7 +402,7 @@ export function usePlayerJoin() {
 
 
         const bet = await program.methods
-          .playerBet()
+          .playerBet(betAmount)
           .accounts({
             signer:publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -339,16 +464,89 @@ export function usePlayerJoin() {
         });
         */
 
-    
+        const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(
+          0,
+          8
+        );
+  
+        const filters = [
+          {
+            memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) },
+          },
+  
+          {
+            memcmp: { offset: 40, bytes: gameAccountKey.toBase58() },
+          },
+        ];
+
+        let offset = 0;
+        let length = 0;
+
+        const accounts = await connection.getProgramAccounts(programId, {
+          dataSlice: { offset, length },
+          filters,
+        });
+
+        const remainingAccounts = accounts.map(account => ({
+          pubkey: account.pubkey, // Use the public key from your array
+          isWritable: false,      // Adjust this based on whether the account needs to be writable
+          isSigner: false         // Adjust this based on whether the account is a signer
+        }));
+
+
+
+        const observationStateSeeds = [
+          Buffer.from("observation"),
+          DEV_CLUBMOON_POOL_ID.toBuffer(),
+        ]
+
+        const [observationState] = await PublicKey.findProgramAddressSync(
+          observationStateSeeds,
+          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+        );
+
+        console.log(observationState.toString(), 'overs');
+
+        const inputVaultSeeds = [
+          Buffer.from("pool_vault"),
+          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          NATIVE_MINT.toBuffer(),
+        ];
+
+        const inputVault = await PublicKey.findProgramAddressSync(
+          inputVaultSeeds,
+          RAYDIUM_DEVNET_CPMM_PROGRAM_ID
+        )[0];
+
+        const outputVaultSeeds = [
+          Buffer.from("pool_vault"),
+          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          DEV_CLUBMOON_MINT.toBuffer(),
+        ];
+
+        const outputVault = await PublicKey.findProgramAddressSync(
+          outputVaultSeeds,
+          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+        )[0];
+
 
 
         const claim = await program.methods
-          .playerClaim()
-          .accounts({
-            signer:publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .instruction();
+        .playerClaim()
+        .accounts({
+          cpSwapProgram: RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+          signer: publicKey,
+          clubmoonMint: DEV_CLUBMOON_MINT,
+          solanaMint: NATIVE_MINT,
+          ammConfig: DEV_AMM_CONFIG,
+          poolState: DEV_CLUBMOON_POOL_ID,
+          inputVault: inputVault,
+          outputVault: outputVault,
+          observationState: observationState,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .remainingAccounts(remainingAccounts)
+        .instruction();
 
         const blockhashContext = await connection.getLatestBlockhashAndContext();
 
@@ -359,7 +557,16 @@ export function usePlayerJoin() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(bet);
+          .add(claim);
+
+        const simulationResult = await connection.simulateTransaction(transaction);
+        console.log('Simulation Result:', simulationResult);
+
+        if (simulationResult.value.err) {
+          console.error('Simulation Error:', simulationResult.value.err);
+          throw new Error('Transaction simulation failed');
+        }
+        
         const signature = await sendTransaction(transaction, connection, {
         });
 
@@ -405,15 +612,51 @@ export function usePlayerJoin() {
         });
         */
 
-     
+
+        const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(
+          0,
+          8
+        );
+  
+        const filters = [
+          {
+            memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) },
+          },
+  
+          {
+            memcmp: { offset: 40, bytes: gameAccountKey.toBase58() },
+          },
+        ];
+
+        let offset = 0;
+        let length = 0;
+
+        const accounts = await connection.getProgramAccounts(programId, {
+          dataSlice: { offset, length },
+          filters,
+        });
+
+        const remainingAccounts = accounts.map(account => ({
+          pubkey: account.pubkey, // Use the public key from your array
+          isWritable: false,      // Adjust this based on whether the account needs to be writable
+          isSigner: false         // Adjust this based on whether the account is a signer
+        }));
+
+        const playerSeeds = [
+          Buffer.from("player"),
+          gameAccountKey.toBuffer(),
+          publicKey.toBuffer()
+        ];
+        const playerAccountKey = PublicKey.findProgramAddressSync(playerSeeds, programId)[0];
 
 
         const leave = await program.methods
           .playerLeave()
           .accounts({
             signer:publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
+            closingPlayerAccount:playerAccountKey
           })
+          .remainingAccounts(remainingAccounts)
           .instruction();
 
         const blockhashContext = await connection.getLatestBlockhashAndContext();
@@ -425,7 +668,7 @@ export function usePlayerJoin() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(bet);
+          .add(leave);
         const signature = await sendTransaction(transaction, connection, {
         });
 
@@ -472,14 +715,58 @@ export function usePlayerJoin() {
         */
 
      
+        const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(
+          0,
+          8
+        );
+  
+        const filters = [
+          {
+            memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) },
+          },
+  
+          {
+            memcmp: { offset: 40, bytes: gameAccountKey.toBase58() },
+          },
+        ];
 
+        let offset = 0;
+        let length = 0;
+
+        const accounts = await connection.getProgramAccounts(programId, {
+          dataSlice: { offset, length },
+          filters,
+        });
+
+        const remainingAccounts = accounts.map(account => ({
+          pubkey: account.pubkey, // Use the public key from your array
+          isWritable: false,      // Adjust this based on whether the account needs to be writable
+          isSigner: false         // Adjust this based on whether the account is a signer
+        }));
+
+        const gameAccountData = await program.account.gameAccount.fetch(gameAccountKey);
+        const currentId  = gameAccountData.currentPlayerId;
+
+
+        const currentIdBuffer = Buffer.alloc(8);
+        currentId.toArrayLike(Buffer, "le", 8).copy(currentIdBuffer);
+
+        filters.push({
+          memcmp: { offset: 72, bytes: bs58.encode(currentIdBuffer) },
+        });
+
+        const currentPlayerAccounts = await connection.getProgramAccounts(programId, {
+          dataSlice: { offset, length },
+          filters,
+        });
 
         const kick = await program.methods
           .kickPlayer()
           .accounts({
             signer:publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
+            closingPlayerAccount: currentPlayerAccounts[0].pubkey, 
           })
+          .remainingAccounts(remainingAccounts)
           .instruction();
 
         const blockhashContext = await connection.getLatestBlockhashAndContext();
@@ -491,7 +778,7 @@ export function usePlayerJoin() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(bet);
+          .add(kick);
         const signature = await sendTransaction(transaction, connection, {
         });
 
@@ -514,6 +801,64 @@ export function usePlayerJoin() {
   });
 
   return {
-    playerJoin
+    gameAccountQuery,
+    playerJoin,
+    playersQuery,
+    playerAnte,
+    playerBet,
+    playerLeave,
+    kickPlayer,
+    playerClaim,
+  };
+}
+
+export function usePlayerAccountQuery({
+  accountKey
+}: {
+  accountKey:PublicKey;
+}) {
+  const { program } = useAceyProgram();
+  const { connection } = useConnection();
+  const {cluster} = useCluster();
+  const queryClient = useQueryClient();
+
+
+  const playerAccountQuery = useQuery({
+    queryKey: ['playerAccount', { cluster, accountKey }],
+    queryFn: async () => {
+      return program.account.playerAccount.fetch(accountKey);
+    },
+  });
+
+  useEffect(() => {
+    const subscriptionId = connection.onAccountChange(
+      accountKey,
+      async (updatedAccountInfo) => {
+        try {
+          const updatedData = await program.account.gameAccount.fetch(accountKey);
+          // Update the query with the new data
+          queryClient.setQueryData(['playerAccount', { cluster, accountKey }], updatedData);
+        } catch (error) {
+          console.error('Failed to fetch updated player account data:', error);
+        }
+      }
+    );
+
+    // Cleanup the subscription when the component unmounts or dependencies change
+    return () => {
+      connection.removeAccountChangeListener(subscriptionId);
+    };
+  }, [connection, accountKey, program, cluster, queryClient]);
+
+
+  
+
+
+
+  
+ 
+
+  return {
+    playerAccountQuery
   };
 }
