@@ -291,53 +291,55 @@ pub mod acey {
             CustomError::Unauthorized
         );
 
-        let card1 = ((game_account.card_1 - 1) % 13) + 1;
-        let card2 = ((game_account.card_2 - 1) % 13) + 1;
-        let card3 = ((game_account.card_3 - 1) % 13) + 1;
+        if game_account.current_bet != 0 {
+            let card1 = ((game_account.card_1 - 1) % 13) + 1;
+            let card2 = ((game_account.card_2 - 1) % 13) + 1;
+            let card3 = ((game_account.card_3 - 1) % 13) + 1;
 
-        // Ensure we find the lower and higher values correctly
-        let low = card1.min(card2);
-        let high = card1.max(card2);
+            // Ensure we find the lower and higher values correctly
+            let low = card1.min(card2);
+            let high = card1.max(card2);
 
-        let game_account_key = game_account.key();
+            let game_account_key = game_account.key();
 
-        let seeds = &["solana".as_bytes(), game_account_key.as_ref(), &[ctx.bumps.treasury_solana_account]];
-        let signer: &[&[&[u8]]] = &[&seeds[..]];
+            let seeds = &["solana".as_bytes(), game_account_key.as_ref(), &[ctx.bumps.treasury_solana_account]];
+            let signer: &[&[&[u8]]] = &[&seeds[..]];
 
-        // Check if card3 is within the inclusive range [low, high]
-        if (card3 >= low) && (card3 <= high) {
-            // WIN condition
-            let cpi_accounts = cpi::accounts::Swap {
-                payer: ctx.accounts.treasury_solana_account.to_account_info(),
-                authority: ctx.accounts.authority.to_account_info(),
-                amm_config: ctx.accounts.amm_config.to_account_info(),
-                pool_state: ctx.accounts.pool_state.to_account_info(),
-                input_token_account: ctx.accounts.treasury_solana_account.to_account_info(),
-                output_token_account: ctx.accounts.user_clubmoon_account.to_account_info(),
-                input_vault: ctx.accounts.input_vault.to_account_info(),
-                output_vault: ctx.accounts.output_vault.to_account_info(),
-                input_token_program: ctx.accounts.token_program.to_account_info(),
-                output_token_program: ctx.accounts.token_program.to_account_info(),
-                input_token_mint: ctx.accounts.solana_mint.to_account_info(),
-                output_token_mint: ctx.accounts.clubmoon_mint.to_account_info(),
-                observation_state: ctx.accounts.observation_state.to_account_info(),
-            };
-            let cpi_context = CpiContext::new_with_signer(
-                ctx.accounts.cp_swap_program.to_account_info(), 
-                cpi_accounts,
-                &signer,
-            );
-            cpi::swap_base_input(cpi_context, game_account.current_bet, 0);
+            // Check if card3 is within the inclusive range [low, high]
+            if (card3 >= low) && (card3 <= high) {
+                // WIN condition
+                let cpi_accounts = cpi::accounts::Swap {
+                    payer: ctx.accounts.treasury_solana_account.to_account_info(),
+                    authority: ctx.accounts.authority.to_account_info(),
+                    amm_config: ctx.accounts.amm_config.to_account_info(),
+                    pool_state: ctx.accounts.pool_state.to_account_info(),
+                    input_token_account: ctx.accounts.treasury_solana_account.to_account_info(),
+                    output_token_account: ctx.accounts.user_clubmoon_account.to_account_info(),
+                    input_vault: ctx.accounts.input_vault.to_account_info(),
+                    output_vault: ctx.accounts.output_vault.to_account_info(),
+                    input_token_program: ctx.accounts.token_program.to_account_info(),
+                    output_token_program: ctx.accounts.token_program.to_account_info(),
+                    input_token_mint: ctx.accounts.solana_mint.to_account_info(),
+                    output_token_mint: ctx.accounts.clubmoon_mint.to_account_info(),
+                    observation_state: ctx.accounts.observation_state.to_account_info(),
+                };
+                let cpi_context = CpiContext::new_with_signer(
+                    ctx.accounts.cp_swap_program.to_account_info(), 
+                    cpi_accounts,
+                    &signer,
+                );
+                cpi::swap_base_input(cpi_context, game_account.current_bet, 0);
 
 
-            msg!("You won! card3 ({}) is between {} and {}", card3, low, high);
-        } else {
-            // LOSE condition
-            msg!("You lost. card3 ({}) is NOT between {} and {}", card3, low, high);
+                msg!("You won! card3 ({}) is between {} and {}", card3, low, high);
+            } else {
+                // LOSE condition
+                msg!("You lost. card3 ({}) is NOT between {} and {}", card3, low, high);
+            }
         }
 
+        
         game_account.current_bet = 0;
-
         game_account.card_1 = 0;
         game_account.card_2 = 0;
         game_account.card_3 = 0;
@@ -347,7 +349,6 @@ pub mod acey {
             game_account.key(), 
             &ctx.remaining_accounts
         )?; 
-
 
         game_account.current_player_id = next_player_id;
 

@@ -5,7 +5,7 @@ import { useAceyProgram, useGameAccount, useInitGame, usePlayerAccountQuery } fr
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import BN from 'bn.js';
-import { EMPTY_PUBLIC_KEY, fromLamportsDecimals, ToLamportsDecimals, ZERO } from './acey-helpers';
+import { EMPTY_PUBLIC_KEY, fromLamportsDecimals, ToLamportsDecimals, ZERO, getCardSvgFilename, shortenString, SHRINK_RATE } from './acey-helpers';
 import { PublicKey } from '@solana/web3.js';
 
 export function InitGameButton() {
@@ -37,6 +37,99 @@ export function InitGameButton() {
   );
 }
 
+
+
+function PlayerCard({ accountKey, index, midpoint, count }: { 
+  accountKey: PublicKey; 
+  index: number; 
+  midpoint: number; 
+  count: number; 
+}) {
+  const { playerAccountQuery } = usePlayerAccountQuery({ accountKey });
+
+  const [playerAccount, setPlayerAccount] = useState({
+    user: EMPTY_PUBLIC_KEY,
+    id: ZERO,
+    userName: "",
+  });
+
+  useEffect(() => {
+    if (playerAccountQuery.data) {
+      setPlayerAccount(playerAccountQuery.data);
+    }
+  }, [playerAccountQuery.data]);
+
+  const computeStyles = () => {
+    const distance = Math.abs(index - midpoint);
+    return {
+      opacity: 0.3 + (1 - distance / (count / 2)) * 0.7,
+      scale: 0.4 + (1 - Math.pow(distance / (count / 2), SHRINK_RATE)) * 0.6,
+      shadow: distance === 0 ? "shadow-xl" : distance < count / 4 ? "shadow-lg" : "shadow-md",
+      translateY: -Math.pow(distance, 1.5) * 3,
+    };
+  };
+
+  const { opacity, scale, shadow, translateY } = computeStyles();
+
+  return (
+    <div
+      key={accountKey.toString()}
+      className={`relative p-6 rounded-lg bg-white flex-shrink-0 ${shadow}`}
+      style={{
+        opacity,
+        transform: `scale(${scale}) translateY(${translateY}px)`,
+        width: "300px",
+        minWidth: "300px",
+      }}
+    >
+      <p className="font-bold text-xl">{playerAccount.userName}</p>
+      <p className="mt-2 text-md">{shortenString(playerAccount.user.toBase58())}</p>
+      <p className="mt-2 text-xs">username bets: <span className="font-bold">5 SOL</span></p>
+      {playerAccount.id.toString()}
+    </div>
+  );
+}
+
+export function ProgressiveDivs({ 
+  allPlayers, 
+  centerId 
+}: { 
+  allPlayers: { pubkey: PublicKey; id: BN }[]; 
+  centerId: BN; 
+}) {
+  const count = allPlayers.length;
+  const midpoint = Math.floor(count / 2);
+
+  // Function to reorder players based on centerId
+  const reorderPlayers = (players: { pubkey: PublicKey; id: BN }[], centerId: BN) => {
+    const centerIndex = players.findIndex(player => player.id.eq(centerId));
+    
+    if (centerIndex === -1) return players; // If centerId not found, return original order
+
+    const ROTATION = Math.ceil(count / 2);
+
+    const rotatedPlayers = [
+      ...players.slice((centerIndex + ROTATION) % players.length),
+      ...players.slice(0, (centerIndex + ROTATION) % players.length)
+    ];
+    return rotatedPlayers;
+  };
+
+  const orderedPlayers = reorderPlayers(allPlayers, centerId);
+
+  return (
+    <div className="w-screen flex justify-center items-center overflow-x-auto space-x-4 px-4">
+      {orderedPlayers.map((player, index) => (
+        <PlayerCard key={player.pubkey.toBase58()} accountKey={player.pubkey} index={index} midpoint={midpoint} count={count} />
+      ))}
+      {count % 2 === 0 && <div className="relative p-6 rounded-lg bg-transparent flex-shrink-0" style={{ width: "300px", minWidth: "300px", opacity: 0 }} />}
+    </div>
+  );
+}
+
+
+
+/*
 export function ShowPlayer({ accountKey, currentPlayerId }: { accountKey: PublicKey; currentPlayerId: BN }) {
   const { playerAccountQuery } = usePlayerAccountQuery({ accountKey });
 
@@ -61,6 +154,47 @@ export function ShowPlayer({ accountKey, currentPlayerId }: { accountKey: Public
   }, [playerAccountQuery.data]);
 
   return (
+    <>
+    <div className="w-screen flex justify-between items-center overflow-x-auto">
+      
+
+    
+      <div className="mb-4 shadow-lg w-full max-w-md mx-auto relative p-6 rounded-lg opacity-100">
+  <p className="font-bold text-xl">username</p>
+  <p className="mt-2 text-md">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
+  <p className="mt-2 text-xs">username bets: <span className="font-bold">5 SOL</span></p>
+</div>
+
+<div className="mb-3 shadow-md w-full max-w-sm mx-auto relative p-5 rounded-md opacity-90">
+  <p className="font-bold text-lg">username</p>
+  <p className="mt-1 text-sm">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
+  <p className="mt-1 text-xs">username bets: <span className="font-bold">5 SOL</span></p>
+</div>
+
+<div className="mb-2 shadow w-full max-w-xs mx-auto relative p-4 rounded-md opacity-75">
+  <p className="font-bold text-md">username</p>
+  <p className="mt-1 text-xs">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
+  <p className="mt-1 text-[10px]">username bets: <span className="font-bold">5 SOL</span></p>
+</div>
+
+<div className="mb-1 shadow-sm w-full max-w-[200px] mx-auto relative p-3 rounded-sm opacity-50">
+  <p className="font-bold text-sm">username</p>
+  <p className="mt-0.5 text-[10px]">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
+  <p className="mt-0.5 text-[8px]">username bets: <span className="font-bold">5 SOL</span></p>
+</div>
+
+<div className="mb-0.5 shadow-xs w-full max-w-[150px] mx-auto relative p-2 rounded-sm opacity-30">
+  <p className="font-bold text-xs">username</p>
+  <p className="mt-0.5 text-[9px]">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
+  <p className="mt-0.5 text-[7px]">username bets: <span className="font-bold">5 SOL</span></p>
+</div>
+
+<div className="w-full max-w-[120px] mx-auto relative p-1 rounded-sm opacity-15">
+  <p className="font-bold text-[10px]">username</p>
+  <p className="mt-0.5 text-[8px]">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
+  <p className="mt-0.5 text-[6px]">username bets: <span className="font-bold">5 SOL</span></p>
+</div>
+</div>
     <pre
       className={`p-2 rounded-md text-black ${
         currentPlayerId.eq(playerAccount.id) ? "bg-yellow-300" : "bg-gray-200"
@@ -68,22 +202,68 @@ export function ShowPlayer({ accountKey, currentPlayerId }: { accountKey: Public
     >
       {JSON.stringify(playerAccount, null, 2)}
     </pre>
+    </>
   );
 }
+*/
+
+
+
+const UserCard = ({ username, bets, description }:any) => {
+  return (
+    <div className={`mb-4 shadow-lg w-full max-w-md p-6 rounded-lg bg-white`}>
+      <p className="font-bold text-xl">{username}</p>
+      <p className="mt-2 text-md">{shortenString(description)}</p>
+      <p className="mt-2 text-xs">
+        {username} bets: <span className="font-bold">{bets} SOL</span>
+      </p>
+    </div>
+  );
+};
+
+const UserGrid = () => {
+  const users = [
+    { username: "user1", bets: 5, description: "giohawoifhiaohdioawhidhwaiohdoiaw" },
+    { username: "user2", bets: 3, description: "longdescriptionhereforuser2" },
+    { username: "user3", bets: 7, description: "anotherlongdescriptionforuser3" },
+    { username: "user4", bets: 2, description: "yetanotherlongdescriptionhere" },
+    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
+    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
+    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
+    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
+  ];
+
+  return (
+    <div className="flex justify-center items-center gap-4 p-4 overflow-x-auto w-full">
+      {users.map((user, index) => (
+        <div
+          key={index}
+          className={
+            users.length % 2 === 0 && index === Math.floor(users.length / 2)
+              ? "flex justify-center"
+              : ""
+          }
+        >
+          <UserCard {...user} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+
+export default UserGrid;
 
 
 export function ShowGame() {
   const { gameAccountQuery, playerJoin, playersQuery, playerAnte, playerBet, playerLeave, kickPlayer, playerClaim } = useGameAccount();
+
   const {publicKey} = useWallet();
 
-  useEffect(() => {
-    if (playersQuery.data && Array.isArray(playersQuery.data)) {
-      setAllPlayers(playersQuery.data);
-    }
-  }, [playersQuery.data]);
+  const [allPlayers, setAllPlayers] = useState<{ pubkey: PublicKey; id: BN }[]>([]);
 
-  const [allPlayers, setAllPlayers] = useState<PublicKey[]>([]);
-
+  
   const [gameAccount, setGameAccount] = useState<{
     entryPrice: BN;
     antePrice: BN;
@@ -131,6 +311,29 @@ export function ShowGame() {
       });
     }
   }, [gameAccountQuery.data]);
+
+  useEffect(() => {
+    if (playersQuery.data && Array.isArray(playersQuery.data)) {
+
+      const players = [...playersQuery.data]; // Copy the array to avoid mutating original data
+  
+      // Find the middle index
+      const middleIndex = Math.floor(players.length / 2);
+  
+      // Separate the target player and remaining players
+      const targetPlayer = players.find(player => player.id.eq(gameAccount.currentlyPlaying));
+      const otherPlayers = players.filter(player => player.id.cmp(gameAccount.currentlyPlaying) !== 0);
+  
+      if (targetPlayer) {
+        // Insert target player at the middle index
+        otherPlayers.splice(middleIndex, 0, targetPlayer);
+      }
+  
+      setAllPlayers(otherPlayers);
+    }
+  }, [playersQuery.data, gameAccount.currentlyPlaying]);
+  
+
 
   const handleUsernameFormFieldChange = (event: { target: { value: any; }; }) => {
     const value = event.target.value;
@@ -241,6 +444,25 @@ export function ShowGame() {
       <div className="mt-2 text-md">
         Entry Price: <span className="font-bold">55 SOL</span>
       </div>
+
+      <div className="flex justify-center items-center p-4 space-x-4">
+        <img
+          src={`/cards/${getCardSvgFilename(0)}`}
+          alt={`Card ${5}`}
+          className="w-[150px] h-30 shadow-lg rounded-lg"
+        />
+
+        <img
+          src={`/cards/${getCardSvgFilename(0)}`}
+          alt={`Card ${5}`}
+          className="w-[180px] h-30 shadow-lg rounded-lg"
+        />
+        <img
+          src={`/cards/${getCardSvgFilename(0)}`}
+          alt={`Card ${5}`}
+          className="w-[150px] h-30 shadow-lg rounded-lg"
+        />
+      </div>
       <div className="mb-4">
         <input
           type="string"
@@ -300,6 +522,8 @@ export function ShowGame() {
       </div>
 
         aa
+      <ProgressiveDivs allPlayers={allPlayers} centerId={new BN(8)}/>
+      {/*
       <ul>
         {allPlayers.map((player, index) => (
           <li key={index}>
@@ -307,6 +531,7 @@ export function ShowGame() {
           </li>
         ))}
       </ul>
+      */}
 
       <h2>Game Account State</h2>
       <pre>

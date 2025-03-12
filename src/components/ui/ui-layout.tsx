@@ -11,7 +11,8 @@ import {WalletButton} from '../solana/solana-provider'
 
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
-import { InitGameButton, ShowGame } from '../acey/acey-ui'
+import OvalUsernames, { InitGameButton, ShowGame } from '../acey/acey-ui'
+import UserGrid from '../acey/acey-ui'
 
 export function UiLayout({ children, links }: { children: ReactNode; links: { label: string; path: string }[] }) {
   const pathname = usePathname()
@@ -26,8 +27,10 @@ export function UiLayout({ children, links }: { children: ReactNode; links: { la
 
       {/* Main Content */}
       <div className="flex flex-col flex-grow overflow-auto">
+
         {/* Hero Section */}
         <div className="hero mt-[64px]">
+
           <div className="hero-content text-center">
             <div className="max-w-2xl">
               <h1 className="text-5xl font-bold">Club Moon</h1>
@@ -62,18 +65,17 @@ export function UiLayout({ children, links }: { children: ReactNode; links: { la
                     <FaGlobe />
                 </a>
               </div>
-              <div className="py-4">
-                <InitGameButton />
-              </div>
+
+                {/*<InitGameButton />*/}
+
               
             </div>
           </div>
           
         </div>
-        <div>
-          <ShowGame/>
-        </div>
+
         
+        <ShowGame/>
         
 
         <div className="flex-grow mx-4 lg:mx-auto mt-4">
@@ -96,6 +98,7 @@ export function UiLayout({ children, links }: { children: ReactNode; links: { la
           </p>
         </footer>
       </div>
+      
 
     </div>
   )

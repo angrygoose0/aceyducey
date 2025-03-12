@@ -159,6 +159,42 @@ export function useGameAccount() {
   const gameSeeds = [Buffer.from("game")];
   const gameAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
 
+  const userPlayerAccountQuery = useQuery({
+    queryKey: ['playerAccount', { cluster, gameAccountKey, publicKey }],
+    queryFn: async () => {
+      if (!publicKey) return null;
+
+      const playerSeeds = [Buffer.from("player"), gameAccountKey.toBuffer(), publicKey.toBuffer()];
+      const playerAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
+
+      return program.account.gameAccount.fetch(playerAccountKey);
+    },
+  });
+
+  useEffect(() => {
+    if (!publicKey) return; // Prevent execution when wallet is not connected
+  
+    const playerSeeds = [Buffer.from("player"), gameAccountKey.toBuffer(), publicKey.toBuffer()];
+    const playerAccountKey = PublicKey.findProgramAddressSync(playerSeeds, programId)[0];
+  
+    const subscriptionId = connection.onAccountChange(
+      playerAccountKey,
+      async () => {
+        try {
+          const updatedData = await program.account.gameAccount.fetch(playerAccountKey);
+          queryClient.setQueryData(['playerAccount', { cluster, playerAccountKey }], updatedData);
+        } catch (error) {
+          console.error('Failed to fetch updated player account data:', error);
+        }
+      }
+    );
+  
+    return () => {
+      connection.removeAccountChangeListener(subscriptionId);
+    };
+  }, [connection, publicKey, gameAccountKey, program, cluster, queryClient]);
+
+
   const gameAccountQuery = useQuery({
     queryKey: ['gameAccount', { cluster, gameAccountKey }],
     queryFn: async () => {
@@ -188,53 +224,46 @@ export function useGameAccount() {
 
 
   const playersQuery = useQuery({
-    queryKey: ['getAllLotteryAccountKeys'],
+    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58()], // Better queryKey
     queryFn: async () => {
-      if (publicKey === null) {
+      if (!publicKey) {
         throw new Error('Wallet not connected');
       }
-
-      const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(
-        0,
-        8
-      );
-
+  
+      // Fetch game account
+      const gameAccount = await program.account.gameAccount.fetch(gameAccountKey);
+  
+      // PlayerAccount discriminator
+      const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(0, 8);
+  
+      // Filters for PlayerAccount
       const filters = [
-        {
-          memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) },
-        },
-
-        {
-          memcmp: { offset: 40, bytes: gameAccountKey.toBase58() },
-        },
+        { memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) } },
+        { memcmp: { offset: 40, bytes: gameAccountKey.toBase58() } },
       ];
-
-      let offset = 72; //id
-      let length = 8;
-
+  
+      let offset = 72; // Offset for `id`
+      let length = 8;  // `id` is a `u64` (8 bytes)
+  
+      // Fetch accounts
       const accounts = await connection.getProgramAccounts(programId, {
         dataSlice: { offset, length },
         filters,
       });
-
-      const accountsWithSpecific = accounts.map(({ pubkey, account }) => {
-        const specific = new BN(account.data, 'le'); // Parse `id` as big int
-        return { pubkey, specific };
+  
+      // Parse `id` values as BN
+      const accountsWithId = accounts.map(({ pubkey, account }) => {
+        const id = new BN(account.data, 'le'); // Keep `id` as BN
+        return { pubkey, id };
       });
-
-
-
-      const sortedAccounts = accountsWithSpecific.sort((a, b) => a.specific.cmp(b.specific));
-
-      const accountKeys = sortedAccounts.map((account) => account.pubkey);
-
-      
-
-      return accountKeys;
+  
+      // Sort accounts by `id` (as BN)
+      const sortedAccounts = accountsWithId.sort((a, b) => a.id.cmp(b.id)); 
+  
+      return sortedAccounts; // Returns an array of `{ pubkey, id }` with `id` as BN
     },
-    refetchInterval: 10000, //10 seconds
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
-
 
 
 
@@ -802,6 +831,7 @@ export function useGameAccount() {
 
   return {
     gameAccountQuery,
+    userPlayerAccountQuery,  //INSTEAD OF DOING THIS, DERIVE SEEDS FROM FRONTEND AND USE EXISITING USEPLAYERACOUBTQUERY!
     playerJoin,
     playersQuery,
     playerAnte,
@@ -815,9 +845,10 @@ export function useGameAccount() {
 export function usePlayerAccountQuery({
   accountKey
 }: {
-  accountKey:PublicKey;
+  accountKey:PublicKey
 }) {
-  const { program } = useAceyProgram();
+  const provider = useAnchorProvider();
+  const program = getAceyProgram(provider);
   const { connection } = useConnection();
   const {cluster} = useCluster();
   const queryClient = useQueryClient();
@@ -835,7 +866,7 @@ export function usePlayerAccountQuery({
       accountKey,
       async (updatedAccountInfo) => {
         try {
-          const updatedData = await program.account.gameAccount.fetch(accountKey);
+          const updatedData = await program.account.playerAccount.fetch(accountKey);
           // Update the query with the new data
           queryClient.setQueryData(['playerAccount', { cluster, accountKey }], updatedData);
         } catch (error) {
@@ -851,11 +882,7 @@ export function usePlayerAccountQuery({
   }, [connection, accountKey, program, cluster, queryClient]);
 
 
-  
 
-
-
-  
  
 
   return {

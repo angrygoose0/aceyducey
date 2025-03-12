@@ -20,6 +20,8 @@ export const DEV_AMM_CONFIG = new PublicKey('9zSzfkYy6awexsHvmggeH36pfVUdDGyCcwm
 export const CLUBMOON_POOL_ID = new PublicKey('5SpsdLEnA64NTHLRw2iXAQ2bq4rknA5M7sLmcDbymJxc')
 export const DEV_CLUBMOON_POOL_ID = new PublicKey('5EE9nSoEP9QXyBHSL93BdWHDdCaj81mpEke8EGppKVa6')
 
+export const SHRINK_RATE = 0.25;
+
 
 export const toLamports = (amount: BN): BN => {
     return amount.mul(BILLION);
@@ -52,8 +54,19 @@ export const fromLamportsDecimals = (amount: BN): number => {
     return amount.toNumber() / BILLION.toNumber();
 };
 
+export const shortenString = (input: string): string => {
+    if (input.length <= 8) {
+        return input; // Return as is if it's 8 or fewer characters
+    }
+
+    const firstFour = input.slice(0, 4);
+    const lastFour = input.slice(-4);
+
+    return `${firstFour}...${lastFour}`;
+}
+
 export const getCardSvgFilename = (number: number): string => {
-    if (number < 1 || number > 52) return "back.svg"; // Default card back
+    if (number < 1 || number > 52) return "b.svg"; // Default card back
   
     const suits = ["c", "d", "h", "s"]; // Clubs, Diamonds, Hearts, Spades
     const rank = ((number - 1) % 13) + 1; // 1-13 for each suit
