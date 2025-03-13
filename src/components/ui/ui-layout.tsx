@@ -11,8 +11,8 @@ import {WalletButton} from '../solana/solana-provider'
 
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
-import OvalUsernames, { InitGameButton, ShowGame } from '../acey/acey-ui'
-import UserGrid from '../acey/acey-ui'
+import { InitGameButton, ShowGame } from '../acey/acey-ui'
+
 
 export function UiLayout({ children, links }: { children: ReactNode; links: { label: string; path: string }[] }) {
   const pathname = usePathname()

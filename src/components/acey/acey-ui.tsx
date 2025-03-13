@@ -7,7 +7,8 @@ import toast from 'react-hot-toast';
 import BN from 'bn.js';
 import { EMPTY_PUBLIC_KEY, fromLamportsDecimals, ToLamportsDecimals, ZERO, getCardSvgFilename, shortenString, SHRINK_RATE, GameAccount } from './acey-helpers';
 import { PublicKey } from '@solana/web3.js';
-import Image from "next/image";
+import Image from 'next/image';
+
 
 export function InitGameButton() {
   const { initGame } = useInitGame();
@@ -102,8 +103,6 @@ function PlayerCard({ accountKey, index, midpoint, count, gameAccount }: {
           </>
         )
       }
-      
-      {playerAccount.id.toString()}
     </div>
   );
 }
@@ -146,131 +145,7 @@ export function ProgressiveDivs({
 
 
 
-/*
-export function ShowPlayer({ accountKey, currentPlayerId }: { accountKey: PublicKey; currentPlayerId: BN }) {
-  const { playerAccountQuery } = usePlayerAccountQuery({ accountKey });
 
-  const [playerAccount, setPlayerAccount] = useState<{
-    id: BN;
-    user: PublicKey;
-    userName: string;
-  }>({
-    id: ZERO,
-    user: EMPTY_PUBLIC_KEY,
-    userName: "",
-  });
-
-  useEffect(() => {
-    if (playerAccountQuery.data) {
-      setPlayerAccount({
-        id: playerAccountQuery.data.id,
-        user: playerAccountQuery.data.user,
-        userName: playerAccountQuery.data.userName,
-      });
-    }
-  }, [playerAccountQuery.data]);
-
-  return (
-    <>
-    <div className="w-screen flex justify-between items-center overflow-x-auto">
-      
-
-    
-      <div className="mb-4 shadow-lg w-full max-w-md mx-auto relative p-6 rounded-lg opacity-100">
-  <p className="font-bold text-xl">username</p>
-  <p className="mt-2 text-md">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
-  <p className="mt-2 text-xs">username bets: <span className="font-bold">5 SOL</span></p>
-</div>
-
-<div className="mb-3 shadow-md w-full max-w-sm mx-auto relative p-5 rounded-md opacity-90">
-  <p className="font-bold text-lg">username</p>
-  <p className="mt-1 text-sm">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
-  <p className="mt-1 text-xs">username bets: <span className="font-bold">5 SOL</span></p>
-</div>
-
-<div className="mb-2 shadow w-full max-w-xs mx-auto relative p-4 rounded-md opacity-75">
-  <p className="font-bold text-md">username</p>
-  <p className="mt-1 text-xs">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
-  <p className="mt-1 text-[10px]">username bets: <span className="font-bold">5 SOL</span></p>
-</div>
-
-<div className="mb-1 shadow-sm w-full max-w-[200px] mx-auto relative p-3 rounded-sm opacity-50">
-  <p className="font-bold text-sm">username</p>
-  <p className="mt-0.5 text-[10px]">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
-  <p className="mt-0.5 text-[8px]">username bets: <span className="font-bold">5 SOL</span></p>
-</div>
-
-<div className="mb-0.5 shadow-xs w-full max-w-[150px] mx-auto relative p-2 rounded-sm opacity-30">
-  <p className="font-bold text-xs">username</p>
-  <p className="mt-0.5 text-[9px]">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
-  <p className="mt-0.5 text-[7px]">username bets: <span className="font-bold">5 SOL</span></p>
-</div>
-
-<div className="w-full max-w-[120px] mx-auto relative p-1 rounded-sm opacity-15">
-  <p className="font-bold text-[10px]">username</p>
-  <p className="mt-0.5 text-[8px]">{shortenString("giohawoifhiaohdioawhidhwaiohdoiaw")}</p>
-  <p className="mt-0.5 text-[6px]">username bets: <span className="font-bold">5 SOL</span></p>
-</div>
-</div>
-    <pre
-      className={`p-2 rounded-md text-black ${
-        currentPlayerId.eq(playerAccount.id) ? "bg-yellow-300" : "bg-gray-200"
-      }`}
-    >
-      {JSON.stringify(playerAccount, null, 2)}
-    </pre>
-    </>
-  );
-}
-*/
-
-
-
-const UserCard = ({ username, bets, description }:any) => {
-  return (
-    <div className={`mb-4 shadow-lg w-full max-w-md p-6 rounded-lg bg-white`}>
-      <p className="font-bold text-xl">{username}</p>
-      <p className="mt-2 text-md">{shortenString(description)}</p>
-      <p className="mt-2 text-xs">
-        {username} bets: <span className="font-bold">{bets} SOL</span>
-      </p>
-    </div>
-  );
-};
-
-const UserGrid = () => {
-  const users = [
-    { username: "user1", bets: 5, description: "giohawoifhiaohdioawhidhwaiohdoiaw" },
-    { username: "user2", bets: 3, description: "longdescriptionhereforuser2" },
-    { username: "user3", bets: 7, description: "anotherlongdescriptionforuser3" },
-    { username: "user4", bets: 2, description: "yetanotherlongdescriptionhere" },
-    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
-    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
-    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
-    { username: "bob", bets: 2, description: "yetanotherlongdescriptionhere" },
-  ];
-
-  return (
-    <div className="flex justify-center items-center gap-4 p-4 overflow-x-auto w-full">
-      {users.map((user, index) => (
-        <div
-          key={index}
-          className={
-            users.length % 2 === 0 && index === Math.floor(users.length / 2)
-              ? "flex justify-center"
-              : ""
-          }
-        >
-          <UserCard {...user} />
-        </div>
-      ))}
-    </div>
-  );
-};
-
-
-
-export default UserGrid;
 
 
 export function ShowGame() {
@@ -550,65 +425,68 @@ export function ShowGame() {
 
       <ProgressiveDivs allPlayers={allPlayers} gameAccount={gameAccount}/>
 
-      <div className="py-4 flex flex-col items-center space-y-4">
-  {playerAccount.id.eq(ZERO) ? (
-    <div className="flex flex-col items-center space-y-2">
-      <input
-        type="text"
-        className="input input-bordered w-auto max-w-xs h-8 shadow-lg"
-        onChange={handleUsernameFormFieldChange}
-        value={userName}
-        placeholder="Select Username"
-      />
-      <button className="btn btn-sm shadow-lg" onClick={handleJoinGameButton}>
-        Join Game
-      </button>
-    </div>
-  ) : (
-    <div className="flex flex-col items-center space-y-2">
-      <button className="btn btn-sm shadow-lg" onClick={handleLeaveButton}>
-        Leave
-      </button>
-      <span className="text-sm font-semibold">{timeLeft(gameAccount.nextSkipTime.toNumber())}</span>
-      {timeLeft(gameAccount.nextSkipTime.toNumber()) === "00:00:00" && (
-        <button className="btn btn-sm shadow-lg" onClick={handleKickButton}>
-          Kick
-        </button>
-      )}
-    </div>
-  )}
+      <div className="py-4 space-y-2">
+        {playerAccount.id.eq(ZERO) ? (
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
+              onChange={handleUsernameFormFieldChange}
+              value={userName}
+              placeholder="Select Username"
+            />
+            <button className="btn btn-xs shadow-lg" onClick={handleJoinGameButton}>
+              Join Game
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2">
+            <button className="btn btn-xs shadow-lg" onClick={handleLeaveButton}>
+              Leave
+            </button>
+            {timeLeft(gameAccount.nextSkipTime.toNumber()) !== "00:00:00" && (
+              <span>{timeLeft(gameAccount.nextSkipTime.toNumber())}</span>
+            )}
+            {timeLeft(gameAccount.nextSkipTime.toNumber()) === "00:00:00" && (
+              <button className="btn btn-xs shadow-lg" onClick={handleKickButton}>
+                Kick
+              </button>
+            )}
+          </div>
+        )}
 
-  {playerAccount.id.eq(gameAccount.currentPlayerId) && (
-    <div className="flex flex-col items-center space-y-2">
-      <button className="btn btn-sm shadow-lg" onClick={handleNextTurnButton}>
-        Next Turn
-      </button>
-      {gameAccount.card1 === 0 && gameAccount.card2 === 0 ? (
-        <button className="btn btn-sm shadow-lg" onClick={handleAnteButton}>
-          Ante
-        </button>
-      ) : gameAccount.card3 === 0 ? (
-        <div className="flex flex-col items-center space-y-2">
-          <input
-            type="number"
-            className="input input-bordered w-auto max-w-xs h-8 shadow-lg"
-            onChange={handleBetFormFieldChange}
-            value={betAmount ? fromLamportsDecimals(betAmount) : ""}
-            placeholder="Set bet (SOL)"
-          />
-          <button className="btn btn-sm shadow-lg" onClick={handleBetButton}>
-            Bet
-          </button>
-        </div>
-      ) : null}
-    </div>
-  )}
+        {playerAccount.id.eq(gameAccount.currentPlayerId) && (
+          <div className="space-y-2">
+            <button className="btn btn-xs shadow-lg" onClick={handleNextTurnButton}>
+              Next Turn
+            </button>
+            {gameAccount.card1 === 0 && gameAccount.card2 === 0 ? (
+              <button className="btn btn-xs shadow-lg" onClick={handleAnteButton}>
+                Ante
+              </button>
+            ) : gameAccount.card3 === 0 ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
+                  onChange={handleBetFormFieldChange}
+                  value={betAmount ? fromLamportsDecimals(betAmount) : ""}
+                  placeholder="Set bet (SOL)"
+                />
+                <button className="btn btn-xs shadow-lg" onClick={handleBetButton}>
+                  Bet
+                </button>
+              </div>
+            ): null}
+          </div>
+        )}
       </div>
 
 
 
 
-      <h2>Game Account State</h2>
+
+      {/* 
       <pre>
         {JSON.stringify(
           Object.fromEntries(
@@ -618,6 +496,7 @@ export function ShowGame() {
           2
         )}
       </pre>
+      */}
     </div>
   );
 }
