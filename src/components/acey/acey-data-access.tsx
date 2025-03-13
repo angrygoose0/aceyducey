@@ -48,7 +48,7 @@ export function useInitGame() {
     string,
     Error
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['initGame'],
     mutationFn: async ( ) => {
       try {
         if (publicKey === null) {
@@ -91,7 +91,7 @@ export function useInitGame() {
           .accounts({
             signer:publicKey,
           })
-          .rpc();
+          .instruction();
 
         
 
@@ -99,13 +99,12 @@ export function useInitGame() {
         .initTreasuries()
         .accounts({
           signer:publicKey,
-          clubmoonMint: DEV_CLUBMOON_MINT, //change to CLUBMOON_MINT
           solanaMint: NATIVE_MINT,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .rpc();
+        .instruction();
 
-        /*
+        
         const blockhashContext = await connection.getLatestBlockhashAndContext();
 
         
@@ -125,8 +124,7 @@ export function useInitGame() {
 
 
         return signature;
-        */
-        return;
+        
 
       } catch (error) {
         console.error("Error during transaction processing:", error);
@@ -160,17 +158,23 @@ export function useGameAccount() {
   const gameAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
 
   const userPlayerAccountQuery = useQuery({
-    queryKey: ['playerAccount', { cluster, gameAccountKey, publicKey }],
+    queryKey: ['userPlayerAccount', { cluster, gameAccountKey, publicKey }],
     queryFn: async () => {
       if (!publicKey) return null;
-
+  
       const playerSeeds = [Buffer.from("player"), gameAccountKey.toBuffer(), publicKey.toBuffer()];
-      const playerAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
-
-      return program.account.gameAccount.fetch(playerAccountKey);
+      const playerAccountKey = PublicKey.findProgramAddressSync(playerSeeds, programId)[0];
+  
+      try {
+        return await program.account.playerAccount.fetch(playerAccountKey);
+      } catch {
+        return null; // Return null if the account does not exist
+      }
     },
   });
-
+  
+  const { refetch } = userPlayerAccountQuery; // Extract refetch function
+  
   useEffect(() => {
     if (!publicKey) return; // Prevent execution when wallet is not connected
   
@@ -179,12 +183,20 @@ export function useGameAccount() {
   
     const subscriptionId = connection.onAccountChange(
       playerAccountKey,
-      async () => {
-        try {
-          const updatedData = await program.account.gameAccount.fetch(playerAccountKey);
-          queryClient.setQueryData(['playerAccount', { cluster, playerAccountKey }], updatedData);
-        } catch (error) {
-          console.error('Failed to fetch updated player account data:', error);
+      async (updatedAccountInfo) => {
+        if (!updatedAccountInfo || updatedAccountInfo.data.length === 0) {
+          // Account is closed, set query data to null
+          queryClient.setQueryData(['userPlayerAccount', { cluster, gameAccountKey, publicKey }], null);
+        } else {
+          try {
+            const updatedData = await program.account.playerAccount.fetch(playerAccountKey);
+            queryClient.setQueryData(['userPlayerAccount', { cluster, gameAccountKey, publicKey }], updatedData);
+  
+            // **Refetch the query to ensure consistency**
+            refetch();
+          } catch (error) {
+            console.error('Failed to fetch updated player account data:', error);
+          }
         }
       }
     );
@@ -192,7 +204,8 @@ export function useGameAccount() {
     return () => {
       connection.removeAccountChangeListener(subscriptionId);
     };
-  }, [connection, publicKey, gameAccountKey, program, cluster, queryClient]);
+  }, [connection, publicKey, gameAccountKey, program, cluster, queryClient, refetch]);
+
 
 
   const gameAccountQuery = useQuery({
@@ -224,7 +237,7 @@ export function useGameAccount() {
 
 
   const playersQuery = useQuery({
-    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58()], // Better queryKey
+    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster], // Better queryKey
     queryFn: async () => {
       if (!publicKey) {
         throw new Error('Wallet not connected');
@@ -262,7 +275,7 @@ export function useGameAccount() {
   
       return sortedAccounts; // Returns an array of `{ pubkey, id }` with `id` as BN
     },
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 1000, // Refresh every 1 seconds
   });
 
 
@@ -272,7 +285,7 @@ export function useGameAccount() {
     Error,
     { userName: string }
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['playerJoin', { cluster, gameAccountKey, publicKey }],
     mutationFn: async ({userName}) => {
       try {
         if (publicKey === null) {
@@ -340,7 +353,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['playerAnte', { cluster, gameAccountKey, publicKey }],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -407,7 +420,7 @@ export function useGameAccount() {
     Error,
     {betAmount:BN}
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['playerBet', { cluster, gameAccountKey, publicKey }],
     mutationFn: async ({betAmount}) => {
       try {
         if (publicKey === null) {
@@ -469,11 +482,11 @@ export function useGameAccount() {
     },
   });
 
-  const playerClaim = useMutation<
+  const nextTurn = useMutation<
     string,
     Error
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['nextTurn', { cluster, gameAccountKey, publicKey }],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -560,8 +573,8 @@ export function useGameAccount() {
 
 
 
-        const claim = await program.methods
-        .playerClaim()
+        const next = await program.methods
+        .nextTurn()
         .accounts({
           cpSwapProgram: RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
           signer: publicKey,
@@ -573,7 +586,7 @@ export function useGameAccount() {
           outputVault: outputVault,
           observationState: observationState,
           tokenProgram: TOKEN_PROGRAM_ID,
-        })
+        } as any)
         .remainingAccounts(remainingAccounts)
         .instruction();
 
@@ -586,7 +599,7 @@ export function useGameAccount() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(claim);
+          .add(next);
 
         const simulationResult = await connection.simulateTransaction(transaction);
         console.log('Simulation Result:', simulationResult);
@@ -612,7 +625,7 @@ export function useGameAccount() {
       transactionToast(signature);
     },
     onError: (error) => {
-      toast.error(`Error initializing game ${error.message}`);
+      toast.error(`Error going to next turn ${error.message}`);
       console.error('Toast error:', error);
     },
   });
@@ -621,7 +634,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['playerLeave', { cluster, gameAccountKey, publicKey }],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -723,7 +736,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['buyToken'],
+    mutationKey: ['kickPlayer', { cluster, gameAccountKey, publicKey }],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -831,14 +844,14 @@ export function useGameAccount() {
 
   return {
     gameAccountQuery,
-    userPlayerAccountQuery,  //INSTEAD OF DOING THIS, DERIVE SEEDS FROM FRONTEND AND USE EXISITING USEPLAYERACOUBTQUERY!
+    userPlayerAccountQuery, 
     playerJoin,
     playersQuery,
     playerAnte,
     playerBet,
     playerLeave,
     kickPlayer,
-    playerClaim,
+    nextTurn,
   };
 }
 

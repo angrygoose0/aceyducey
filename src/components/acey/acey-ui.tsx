@@ -5,8 +5,9 @@ import { useAceyProgram, useGameAccount, useInitGame, usePlayerAccountQuery } fr
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import BN from 'bn.js';
-import { EMPTY_PUBLIC_KEY, fromLamportsDecimals, ToLamportsDecimals, ZERO, getCardSvgFilename, shortenString, SHRINK_RATE } from './acey-helpers';
+import { EMPTY_PUBLIC_KEY, fromLamportsDecimals, ToLamportsDecimals, ZERO, getCardSvgFilename, shortenString, SHRINK_RATE, GameAccount } from './acey-helpers';
 import { PublicKey } from '@solana/web3.js';
+import Image from "next/image";
 
 export function InitGameButton() {
   const { initGame } = useInitGame();
@@ -39,11 +40,12 @@ export function InitGameButton() {
 
 
 
-function PlayerCard({ accountKey, index, midpoint, count }: { 
+function PlayerCard({ accountKey, index, midpoint, count, gameAccount }: { 
   accountKey: PublicKey; 
   index: number; 
   midpoint: number; 
   count: number; 
+  gameAccount: GameAccount;
 }) {
   const { playerAccountQuery } = usePlayerAccountQuery({ accountKey });
 
@@ -84,7 +86,23 @@ function PlayerCard({ accountKey, index, midpoint, count }: {
     >
       <p className="font-bold text-xl">{playerAccount.userName}</p>
       <p className="mt-2 text-md">{shortenString(playerAccount.user.toBase58())}</p>
-      <p className="mt-2 text-xs">username bets: <span className="font-bold">5 SOL</span></p>
+      {(playerAccount.id.eq(gameAccount.currentPlayerId)) && 
+        gameAccount.card1 !== 0 && 
+        gameAccount.card2 !== 0 && (
+          <>
+            <p className="mt-2 text-xs">
+              {playerAccount.userName} antes: <span className="font-bold">{fromLamportsDecimals(gameAccount.antePrice)} SOL</span>
+            </p>
+
+            {!gameAccount.currentBet.eq(ZERO) && (
+              <p className="mt-2 text-xs">
+                {playerAccount.userName} bets: <span className="font-bold">{fromLamportsDecimals(gameAccount.currentBet)} SOL</span>
+              </p>
+            )}
+          </>
+        )
+      }
+      
       {playerAccount.id.toString()}
     </div>
   );
@@ -92,17 +110,17 @@ function PlayerCard({ accountKey, index, midpoint, count }: {
 
 export function ProgressiveDivs({ 
   allPlayers, 
-  centerId 
+  gameAccount,
 }: { 
   allPlayers: { pubkey: PublicKey; id: BN }[]; 
-  centerId: BN; 
+  gameAccount: GameAccount
 }) {
+
   const count = allPlayers.length;
   const midpoint = Math.floor(count / 2);
 
-  // Function to reorder players based on centerId
-  const reorderPlayers = (players: { pubkey: PublicKey; id: BN }[], centerId: BN) => {
-    const centerIndex = players.findIndex(player => player.id.eq(centerId));
+  const reorderPlayers = (players: { pubkey: PublicKey; id: BN }[], currentPlayerId: BN) => {
+    const centerIndex = players.findIndex(player => player.id.eq(currentPlayerId));
     
     if (centerIndex === -1) return players; // If centerId not found, return original order
 
@@ -114,13 +132,12 @@ export function ProgressiveDivs({
     ];
     return rotatedPlayers;
   };
-
-  const orderedPlayers = reorderPlayers(allPlayers, centerId);
+  const orderedPlayers = reorderPlayers(allPlayers, gameAccount.currentPlayerId);
 
   return (
-    <div className="w-screen flex justify-center items-center overflow-x-auto space-x-4 px-4">
+    <div className="w-screen flex justify-center items-center overflow-x-auto space-x-4 px-4 py-4">
       {orderedPlayers.map((player, index) => (
-        <PlayerCard key={player.pubkey.toBase58()} accountKey={player.pubkey} index={index} midpoint={midpoint} count={count} />
+        <PlayerCard key={player.pubkey.toBase58()} accountKey={player.pubkey} index={index} midpoint={midpoint} count={count} gameAccount={gameAccount} />
       ))}
       {count % 2 === 0 && <div className="relative p-6 rounded-lg bg-transparent flex-shrink-0" style={{ width: "300px", minWidth: "300px", opacity: 0 }} />}
     </div>
@@ -257,9 +274,10 @@ export default UserGrid;
 
 
 export function ShowGame() {
-  const { gameAccountQuery, playerJoin, playersQuery, playerAnte, playerBet, playerLeave, kickPlayer, playerClaim } = useGameAccount();
+  const { gameAccountQuery, playerJoin, playersQuery, playerAnte, playerBet, playerLeave, kickPlayer, nextTurn, userPlayerAccountQuery } = useGameAccount();
 
   const {publicKey} = useWallet();
+  
 
   const [allPlayers, setAllPlayers] = useState<{ pubkey: PublicKey; id: BN }[]>([]);
 
@@ -290,8 +308,45 @@ export function ShowGame() {
     card3: 0,
   });
 
+
+
+  const [playerAccount, setPlayerAccount] = useState<{
+    id: BN;
+    user_name: string;
+
+  }>({
+    id: ZERO,
+    user_name: "",
+  });
+
   const [userName, setUserName] = useState("");
   const [betAmount, setBetAmount] = useState<BN | null>(null);
+
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCurrentTime(Date.now()); // State update
+    }, 1000);
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
+
+  const timeLeft = (to: number): string => {
+    const now = Math.floor(Date.now() / 1000); // Current time in seconds
+    let diff = to - now; // Time remaining
+  
+    if (diff <= 0) return "00:00:00"; // If time is up
+  
+    const hours = Math.floor(diff / 3600);
+    diff %= 3600;
+    const minutes = Math.floor(diff / 60);
+    const seconds = diff % 60;
+  
+    return [hours, minutes, seconds]
+      .map((unit) => String(unit).padStart(2, "0"))
+      .join(":");
+  };
 
 
   useEffect(() => {
@@ -311,6 +366,23 @@ export function ShowGame() {
       });
     }
   }, [gameAccountQuery.data]);
+
+
+  
+  useEffect(() => {
+    if (userPlayerAccountQuery.data) {
+      setPlayerAccount({
+        id: userPlayerAccountQuery.data.id,
+        user_name: userPlayerAccountQuery.data.userName,
+      });
+    } else {
+      // Reset to default values when data is null
+      setPlayerAccount({
+        id: ZERO,
+        user_name: "",
+      });
+    }
+  }, [userPlayerAccountQuery.data]);
 
   useEffect(() => {
     if (playersQuery.data && Array.isArray(playersQuery.data)) {
@@ -396,19 +468,19 @@ export function ShowGame() {
     }
   }, [playerBet, publicKey, betAmount]);
 
-  const handleClaimButton = useCallback(async () => {
+  const handleNextTurnButton = useCallback(async () => {
     try {
       if (!publicKey) throw new Error("Wallet is not connected.");
 
 
-      await playerClaim.mutateAsync();
+      await nextTurn.mutateAsync();
 
       toast.success("turn ended successfully!");
     } catch (error: any) {
       console.error("Error ending turn:", error);
       toast.error("Failed to end turn");
     }
-  }, [playerClaim, publicKey]);
+  }, [nextTurn, publicKey]);
 
   const handleLeaveButton = useCallback(async () => {
     try {
@@ -436,102 +508,105 @@ export function ShowGame() {
     }
   }, [kickPlayer, publicKey]);
 
-
   return (
     <div className="flex flex-col items-center text-center">
       <h2 className="font-bold text-md mr-2">Pooled SOL:</h2>
-      <p className="text-4xl font-bold mr-2 ">0.5 SOL</p>
+      <p className="text-4xl font-bold mr-2 ">{fromLamportsDecimals(gameAccount.potAmount)} SOL</p>
       <div className="mt-2 text-md">
-        Entry Price: <span className="font-bold">55 SOL</span>
+        Entry Price: <span className="font-bold">{fromLamportsDecimals(gameAccount.entryPrice)} SOL</span>
       </div>
+      <div className="mt-2 text-md">
+        Ante Price: <span className="font-bold">{fromLamportsDecimals(gameAccount.antePrice)} SOL</span>
+      </div>
+
+      
 
       <div className="flex justify-center items-center p-4 space-x-4">
-        <img
-          src={`/cards/${getCardSvgFilename(0)}`}
-          alt={`Card ${5}`}
-          className="w-[150px] h-30 shadow-lg rounded-lg"
+        <Image
+          src={`/cards/${getCardSvgFilename(gameAccount.card1)}`}
+          alt={`Card ${gameAccount.card1}`}
+          width={150}
+          height={120} // Adjusted height proportionally
+          className="shadow-lg rounded-lg"
         />
 
-        <img
-          src={`/cards/${getCardSvgFilename(0)}`}
-          alt={`Card ${5}`}
-          className="w-[180px] h-30 shadow-lg rounded-lg"
+        <Image
+          src={`/cards/${getCardSvgFilename(gameAccount.card3)}`}
+          alt={`Card ${gameAccount.card3}`}
+          width={180}
+          height={144} // Adjusted height proportionally
+          className="shadow-lg rounded-lg"
         />
-        <img
-          src={`/cards/${getCardSvgFilename(0)}`}
-          alt={`Card ${5}`}
-          className="w-[150px] h-30 shadow-lg rounded-lg"
+
+        <Image
+          src={`/cards/${getCardSvgFilename(gameAccount.card2)}`}
+          alt={`Card ${gameAccount.card2}`}
+          width={150}
+          height={120} // Adjusted height proportionally
+          className="shadow-lg rounded-lg"
         />
       </div>
-      <div className="mb-4">
-        <input
-          type="string"
-          className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
-          onChange={handleUsernameFormFieldChange}
-          value={userName}
-          placeholder="Select Username"
-        />
+      
 
-        <input
-          type="number"
-          className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
-          onChange={handleBetFormFieldChange}
-          value={betAmount === null ? "" : fromLamportsDecimals(betAmount)}
-          placeholder="set bet (sol)"
-        />
-        <button
-          className="btn btn-xs shadow-lg"
-          onClick={handleJoinGameButton}
-        >
-          Join Game
-       </button>
+      <ProgressiveDivs allPlayers={allPlayers} gameAccount={gameAccount}/>
 
-       <button
-          className="btn btn-xs shadow-lg"
-          onClick={handleAnteButton}
-        >
-          Ante
-       </button>
-
-       <button
-          className="btn btn-xs shadow-lg"
-          onClick={handleBetButton}
-        >
-          Bet
-       </button>
-
-       <button
-          className="btn btn-xs shadow-lg"
-          onClick={handleClaimButton}
-        >
-          Claim
-       </button>
-
-       <button
-          className="btn btn-xs shadow-lg"
-          onClick={handleLeaveButton}
-        >
-          Leave
-       </button>
-       <button
-          className="btn btn-xs shadow-lg"
-          onClick={handleKickButton}
-        >
+      <div className="py-4 flex flex-col items-center space-y-4">
+  {playerAccount.id.eq(ZERO) ? (
+    <div className="flex flex-col items-center space-y-2">
+      <input
+        type="text"
+        className="input input-bordered w-auto max-w-xs h-8 shadow-lg"
+        onChange={handleUsernameFormFieldChange}
+        value={userName}
+        placeholder="Select Username"
+      />
+      <button className="btn btn-sm shadow-lg" onClick={handleJoinGameButton}>
+        Join Game
+      </button>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center space-y-2">
+      <button className="btn btn-sm shadow-lg" onClick={handleLeaveButton}>
+        Leave
+      </button>
+      <span className="text-sm font-semibold">{timeLeft(gameAccount.nextSkipTime.toNumber())}</span>
+      {timeLeft(gameAccount.nextSkipTime.toNumber()) === "00:00:00" && (
+        <button className="btn btn-sm shadow-lg" onClick={handleKickButton}>
           Kick
-       </button>
+        </button>
+      )}
+    </div>
+  )}
+
+  {playerAccount.id.eq(gameAccount.currentPlayerId) && (
+    <div className="flex flex-col items-center space-y-2">
+      <button className="btn btn-sm shadow-lg" onClick={handleNextTurnButton}>
+        Next Turn
+      </button>
+      {gameAccount.card1 === 0 && gameAccount.card2 === 0 ? (
+        <button className="btn btn-sm shadow-lg" onClick={handleAnteButton}>
+          Ante
+        </button>
+      ) : gameAccount.card3 === 0 ? (
+        <div className="flex flex-col items-center space-y-2">
+          <input
+            type="number"
+            className="input input-bordered w-auto max-w-xs h-8 shadow-lg"
+            onChange={handleBetFormFieldChange}
+            value={betAmount ? fromLamportsDecimals(betAmount) : ""}
+            placeholder="Set bet (SOL)"
+          />
+          <button className="btn btn-sm shadow-lg" onClick={handleBetButton}>
+            Bet
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )}
       </div>
 
-        aa
-      <ProgressiveDivs allPlayers={allPlayers} centerId={new BN(8)}/>
-      {/*
-      <ul>
-        {allPlayers.map((player, index) => (
-          <li key={index}>
-            <ShowPlayer accountKey={player} currentPlayerId={gameAccount.currentPlayerId}/>
-          </li>
-        ))}
-      </ul>
-      */}
+
+
 
       <h2>Game Account State</h2>
       <pre>

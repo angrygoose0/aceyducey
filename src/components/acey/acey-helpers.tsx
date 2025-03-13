@@ -65,6 +65,20 @@ export const shortenString = (input: string): string => {
     return `${firstFour}...${lastFour}`;
 }
 
+export type GameAccount = {
+    entryPrice: BN;
+    antePrice: BN;
+    potAmount: BN;
+    nextSkipTime: BN;
+    currentBet: BN;
+    playerNo: BN;
+    currentPlayerId: BN;
+    currentlyPlaying: BN;
+    card1: number;
+    card2: number;
+    card3: number;
+};
+
 export const getCardSvgFilename = (number: number): string => {
     if (number < 1 || number > 52) return "b.svg"; // Default card back
   
