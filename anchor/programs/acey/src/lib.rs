@@ -21,7 +21,7 @@ use raydium_cpmm_cpi::{
 
 pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-declare_id!("GEo5Z62CmpKJm156BqaKZNYffGd8ppibGAad2fgYATYG");
+declare_id!("Hvd26mSxSWLxVvNmWxQ3hVvs8Jpnj5zrF9JSTiii1ofV");
 
 #[program]
 pub mod acey {
@@ -53,7 +53,7 @@ pub mod acey {
 
         game_account.current_bet = 0;
 
-        game_account.player_no = 0;
+        game_account.player_no = 1;
         game_account.current_player_id = 0;
         game_account.currently_playing = 0;
 
@@ -65,10 +65,6 @@ pub mod acey {
         ctx: Context<InitializeTreasuries>,
     ) -> Result<()> {
 
-        require!(
-            ctx.accounts.clubmoon_mint.key() == CLUBMOON_MINT,
-            CustomError::InvalidMint,
-        );
         require!(
             ctx.accounts.solana_mint.key() == SOLANA_MINT,
             CustomError::InvalidMint,
@@ -160,7 +156,7 @@ pub mod acey {
                 to: ctx.accounts.treasury_solana_account.to_account_info().clone(),
             },
         );
-        system_program::transfer(cpi_context, game_account.entry_price)?; // sol transferred to treasury
+        system_program::transfer(cpi_context, game_account.ante_price)?; // sol transferred to treasury
 
         sync_native(CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -265,7 +261,7 @@ pub mod acey {
         Ok(())
     }
 
-    pub fn player_claim(
+    pub fn next_turn(
         ctx: Context<PlayerClaim>,
     ) -> Result<()> {
 
@@ -524,22 +520,8 @@ pub struct InitializeTreasuries<'info> {
     )]
     pub game_account: Box<Account<'info, GameAccount>>,
 
-    
-    #[account(mut)]
-    pub clubmoon_mint: Box<InterfaceAccount<'info, Mint>>,
-
     #[account(mut)]
     pub solana_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    #[account(
-        init,
-        seeds = [b"clubmoon", game_account.key().as_ref()],
-        bump,
-        payer = signer,
-        token::mint = clubmoon_mint,
-        token::authority = treasury_clubmoon_account,
-    )]
-    pub treasury_clubmoon_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -690,13 +672,6 @@ pub struct PlayerClaim<'info> {
         bump,
     )]
     pub treasury_solana_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    #[account(
-        mut,
-        seeds = [b"clubmoon", game_account.key().as_ref()],
-        bump,
-    )]
-    pub treasury_clubmoon_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         init_if_needed,

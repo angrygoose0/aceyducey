@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/acey.json`.
  */
 export type Acey = {
-  "address": "GEo5Z62CmpKJm156BqaKZNYffGd8ppibGAad2fgYATYG",
+  "address": "Hvd26mSxSWLxVvNmWxQ3hVvs8Jpnj5zrF9JSTiii1ofV",
   "metadata": {
     "name": "acey",
     "version": "0.1.0",
@@ -91,37 +91,8 @@ export type Acey = {
           }
         },
         {
-          "name": "clubmoonMint",
-          "writable": true
-        },
-        {
           "name": "solanaMint",
           "writable": true
-        },
-        {
-          "name": "treasuryClubmoonAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  117,
-                  98,
-                  109,
-                  111,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "gameAccount"
-              }
-            ]
-          }
         },
         {
           "name": "treasurySolanaAccount",
@@ -198,6 +169,279 @@ export type Acey = {
         {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "nextTurn",
+      "discriminator": [
+        0,
+        157,
+        78,
+        44,
+        228,
+        183,
+        174,
+        198
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "gameAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "playerAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "gameAccount"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clubmoonMint"
+        },
+        {
+          "name": "solanaMint"
+        },
+        {
+          "name": "treasurySolanaAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  97,
+                  110,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "gameAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "userClubmoonAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "clubmoonMint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "cpSwapProgram",
+          "address": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
+        },
+        {
+          "name": "authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  97,
+                  110,
+                  100,
+                  95,
+                  108,
+                  112,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  95,
+                  115,
+                  101,
+                  101,
+                  100
+                ]
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "cpSwapProgram"
+            }
+          }
+        },
+        {
+          "name": "ammConfig",
+          "docs": [
+            "The factory state to read protocol fees"
+          ]
+        },
+        {
+          "name": "poolState",
+          "docs": [
+            "The program account of the pool in which the swap will be performed"
+          ],
+          "writable": true
+        },
+        {
+          "name": "inputVault",
+          "docs": [
+            "The vault token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "outputVault",
+          "docs": [
+            "The vault token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "observationState",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "associatedTokenProgram",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
       "args": []
@@ -396,304 +640,6 @@ export type Acey = {
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "playerClaim",
-      "discriminator": [
-        188,
-        220,
-        237,
-        31,
-        181,
-        18,
-        85,
-        45
-      ],
-      "accounts": [
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "gameAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  103,
-                  97,
-                  109,
-                  101
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "playerAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  108,
-                  97,
-                  121,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "gameAccount"
-              },
-              {
-                "kind": "account",
-                "path": "signer"
-              }
-            ]
-          }
-        },
-        {
-          "name": "clubmoonMint"
-        },
-        {
-          "name": "solanaMint"
-        },
-        {
-          "name": "treasurySolanaAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  111,
-                  108,
-                  97,
-                  110,
-                  97
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "gameAccount"
-              }
-            ]
-          }
-        },
-        {
-          "name": "treasuryClubmoonAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  117,
-                  98,
-                  109,
-                  111,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "gameAccount"
-              }
-            ]
-          }
-        },
-        {
-          "name": "userClubmoonAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "signer"
-              },
-              {
-                "kind": "const",
-                "value": [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clubmoonMint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "cpSwapProgram",
-          "address": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
-        },
-        {
-          "name": "authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116,
-                  95,
-                  97,
-                  110,
-                  100,
-                  95,
-                  108,
-                  112,
-                  95,
-                  109,
-                  105,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  95,
-                  115,
-                  101,
-                  101,
-                  100
-                ]
-              }
-            ],
-            "program": {
-              "kind": "account",
-              "path": "cpSwapProgram"
-            }
-          }
-        },
-        {
-          "name": "ammConfig",
-          "docs": [
-            "The factory state to read protocol fees"
-          ]
-        },
-        {
-          "name": "poolState",
-          "docs": [
-            "The program account of the pool in which the swap will be performed"
-          ],
-          "writable": true
-        },
-        {
-          "name": "inputVault",
-          "docs": [
-            "The vault token account for input token"
-          ],
-          "writable": true
-        },
-        {
-          "name": "outputVault",
-          "docs": [
-            "The vault token account for output token"
-          ],
-          "writable": true
-        },
-        {
-          "name": "observationState",
-          "writable": true
-        },
-        {
-          "name": "tokenProgram"
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "associatedTokenProgram",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-        }
-      ],
-      "args": []
     },
     {
       "name": "playerJoin",
