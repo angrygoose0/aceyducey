@@ -6,7 +6,7 @@ import * as React from 'react'
 import {ReactNode, Suspense, useEffect, useRef} from 'react'
 import toast, {Toaster} from 'react-hot-toast'
 
-import {ClusterChecker, ClusterUiSelect, ExplorerLink} from '../cluster/cluster-ui'
+import {ExplorerLink} from '../cluster/cluster-ui'
 import {WalletButton} from '../solana/solana-provider'
 
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'

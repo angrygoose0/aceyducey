@@ -35,3 +35,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 tmp
+
+cluster-ui-local.tsx
+cluster-data-access-local.tsx
