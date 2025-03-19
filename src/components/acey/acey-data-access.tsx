@@ -10,7 +10,7 @@ import { useAnchorProvider } from '../solana/solana-provider'
 import { useTransactionToast } from '../ui/ui-layout'
 import { ComputeBudgetProgram, PublicKey, Transaction } from '@solana/web3.js';
 import BN from 'bn.js';
-import { CLUBMOON_MINT, DEV_AMM_CONFIG, DEV_CLUBMOON_MINT, DEV_CLUBMOON_POOL_ID, EMPTY_PUBLIC_KEY, RAYDIUM_CPMM_PROGRAM_ID, RAYDIUM_DEVNET_CPMM_PROGRAM_ID, ZERO } from './acey-helpers';
+import { ADMIN_KEY, AMM_CONFIG, CLUBMOON_MINT, CLUBMOON_POOL_ID, DEV_AMM_CONFIG, DEV_CLUBMOON_MINT, DEV_CLUBMOON_POOL_ID, EMPTY_PUBLIC_KEY, RAYDIUM_CPMM_PROGRAM_ID, RAYDIUM_DEVNET_CPMM_PROGRAM_ID, ZERO } from './acey-helpers';
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, NATIVE_MINT, getAssociatedTokenAddress } from '@solana/spl-token';
 import { useEffect } from 'react';
 
@@ -158,7 +158,7 @@ export function useGameAccount() {
   const gameAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
 
   const userPlayerAccountQuery = useQuery({
-    queryKey: ['userPlayerAccount', { cluster, gameAccountKey, publicKey }],
+    queryKey: ['userPlayerAccount', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
     queryFn: async () => {
       if (!publicKey) return null;
   
@@ -186,11 +186,11 @@ export function useGameAccount() {
       async (updatedAccountInfo) => {
         if (!updatedAccountInfo || updatedAccountInfo.data.length === 0) {
           // Account is closed, set query data to null
-          queryClient.setQueryData(['userPlayerAccount', { cluster, gameAccountKey, publicKey }], null);
+          queryClient.setQueryData(['userPlayerAccount', cluster, gameAccountKey.toBase58(), publicKey.toBase58() ], null);
         } else {
           try {
             const updatedData = await program.account.playerAccount.fetch(playerAccountKey);
-            queryClient.setQueryData(['userPlayerAccount', { cluster, gameAccountKey, publicKey }], updatedData);
+            queryClient.setQueryData(['userPlayerAccount', cluster, gameAccountKey.toBase58(), publicKey.toBase58() ], updatedData);
   
             // **Refetch the query to ensure consistency**
             refetch();
@@ -209,47 +209,48 @@ export function useGameAccount() {
 
 
   const gameAccountQuery = useQuery({
-    queryKey: ['gameAccount', { cluster, gameAccountKey }],
+    queryKey: ['gameAccount', cluster, gameAccountKey.toBase58()],
     queryFn: async () => {
       return program.account.gameAccount.fetch(gameAccountKey);
     },
   });
 
+  
   useEffect(() => {
     const subscriptionId = connection.onAccountChange(
       gameAccountKey,
       async (updatedAccountInfo) => {
         try {
           const updatedData = await program.account.gameAccount.fetch(gameAccountKey);
-          // Update the query with the new data
-          queryClient.setQueryData(['gameAccount', { cluster, gameAccountKey }], updatedData);
+          // Update the game account query with the new data
+          queryClient.setQueryData(['gameAccount', cluster, gameAccountKey.toBase58()], updatedData);
+  
+          // Manually refetch the playersQuery when gameAccount changes
+          queryClient.invalidateQueries({
+            queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster]
+          });
         } catch (error) {
           console.error('Failed to fetch updated game account data:', error);
         }
       }
     );
-
-    // Cleanup the subscription when the component unmounts or dependencies change
+  
     return () => {
       connection.removeAccountChangeListener(subscriptionId);
     };
   }, [connection, gameAccountKey, program, cluster, queryClient]);
-
-
+  
   const playersQuery = useQuery({
-    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster], // Better queryKey
+    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster], 
     queryFn: async () => {
       if (!publicKey) {
         throw new Error('Wallet not connected');
       }
   
-      // Fetch game account
       const gameAccount = await program.account.gameAccount.fetch(gameAccountKey);
   
-      // PlayerAccount discriminator
       const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(0, 8);
   
-      // Filters for PlayerAccount
       const filters = [
         { memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) } },
         { memcmp: { offset: 40, bytes: gameAccountKey.toBase58() } },
@@ -258,24 +259,21 @@ export function useGameAccount() {
       let offset = 72; // Offset for `id`
       let length = 8;  // `id` is a `u64` (8 bytes)
   
-      // Fetch accounts
       const accounts = await connection.getProgramAccounts(programId, {
         dataSlice: { offset, length },
         filters,
       });
   
-      // Parse `id` values as BN
       const accountsWithId = accounts.map(({ pubkey, account }) => {
-        const id = new BN(account.data, 'le'); // Keep `id` as BN
+        const id = new BN(account.data, 'le'); 
         return { pubkey, id };
       });
   
-      // Sort accounts by `id` (as BN)
       const sortedAccounts = accountsWithId.sort((a, b) => a.id.cmp(b.id)); 
   
-      return sortedAccounts; // Returns an array of `{ pubkey, id }` with `id` as BN
+      return sortedAccounts;
     },
-    refetchInterval: 1000, // Refresh every 1 seconds
+    enabled: !!gameAccountQuery.data, // Only fetch if gameAccount exists
   });
 
 
@@ -285,7 +283,7 @@ export function useGameAccount() {
     Error,
     { userName: string }
   >({
-    mutationKey: ['playerJoin', { cluster, gameAccountKey, publicKey }],
+    mutationKey: ['playerJoin', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async ({userName}) => {
       try {
         if (publicKey === null) {
@@ -313,6 +311,7 @@ export function useGameAccount() {
           .accounts({
             signer:publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
+            admin: ADMIN_KEY,
           })
           .instruction();
 
@@ -353,7 +352,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['playerAnte', { cluster, gameAccountKey, publicKey }],
+    mutationKey: ['playerAnte', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -381,6 +380,7 @@ export function useGameAccount() {
           .accounts({
             signer:publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
+            admin: ADMIN_KEY,
           })
           .instruction();
 
@@ -420,7 +420,7 @@ export function useGameAccount() {
     Error,
     {betAmount:BN}
   >({
-    mutationKey: ['playerBet', { cluster, gameAccountKey, publicKey }],
+    mutationKey: ['playerBet', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async ({betAmount}) => {
       try {
         if (publicKey === null) {
@@ -448,6 +448,7 @@ export function useGameAccount() {
           .accounts({
             signer:publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
+            admin: ADMIN_KEY,
           })
           .instruction();
 
@@ -486,7 +487,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['nextTurn', { cluster, gameAccountKey, publicKey }],
+    mutationKey: ['nextTurn', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -539,36 +540,36 @@ export function useGameAccount() {
 
         const observationStateSeeds = [
           Buffer.from("observation"),
-          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          CLUBMOON_POOL_ID.toBuffer(),
         ]
 
         const [observationState] = await PublicKey.findProgramAddressSync(
           observationStateSeeds,
-          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+          RAYDIUM_CPMM_PROGRAM_ID,
         );
 
         console.log(observationState.toString(), 'overs');
 
         const inputVaultSeeds = [
           Buffer.from("pool_vault"),
-          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          CLUBMOON_POOL_ID.toBuffer(),
           NATIVE_MINT.toBuffer(),
         ];
 
         const inputVault = await PublicKey.findProgramAddressSync(
           inputVaultSeeds,
-          RAYDIUM_DEVNET_CPMM_PROGRAM_ID
+          RAYDIUM_CPMM_PROGRAM_ID
         )[0];
 
         const outputVaultSeeds = [
           Buffer.from("pool_vault"),
-          DEV_CLUBMOON_POOL_ID.toBuffer(),
-          DEV_CLUBMOON_MINT.toBuffer(),
+          CLUBMOON_POOL_ID.toBuffer(),
+          CLUBMOON_MINT.toBuffer(),
         ];
 
         const outputVault = await PublicKey.findProgramAddressSync(
           outputVaultSeeds,
-          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+          RAYDIUM_CPMM_PROGRAM_ID,
         )[0];
 
 
@@ -576,12 +577,11 @@ export function useGameAccount() {
         const next = await program.methods
         .nextTurn()
         .accounts({
-          cpSwapProgram: RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
           signer: publicKey,
-          clubmoonMint: DEV_CLUBMOON_MINT,
+          clubmoonMint: CLUBMOON_MINT,
           solanaMint: NATIVE_MINT,
-          ammConfig: DEV_AMM_CONFIG,
-          poolState: DEV_CLUBMOON_POOL_ID,
+          ammConfig: AMM_CONFIG,
+          poolState: CLUBMOON_POOL_ID,
           inputVault: inputVault,
           outputVault: outputVault,
           observationState: observationState,
@@ -634,7 +634,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['playerLeave', { cluster, gameAccountKey, publicKey }],
+    mutationKey: ['playerLeave', cluster, gameAccountKey.toBase58(), publicKey?.toBase58() ],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -736,7 +736,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['kickPlayer', { cluster, gameAccountKey, publicKey }],
+    mutationKey: ['kickPlayer', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -868,27 +868,28 @@ export function usePlayerAccountQuery({
 
 
   const playerAccountQuery = useQuery({
-    queryKey: ['playerAccount', { cluster, accountKey }],
+    queryKey: ['playerAccount', cluster, accountKey.toBase58()],
     queryFn: async () => {
       return program.account.playerAccount.fetch(accountKey);
     },
   });
-
+  
   useEffect(() => {
-    const subscriptionId = connection.onAccountChange(
-      accountKey,
-      async (updatedAccountInfo) => {
-        try {
-          const updatedData = await program.account.playerAccount.fetch(accountKey);
-          // Update the query with the new data
-          queryClient.setQueryData(['playerAccount', { cluster, accountKey }], updatedData);
-        } catch (error) {
-          console.error('Failed to fetch updated player account data:', error);
-        }
+    if (!connection || !accountKey) return;
+  
+    const handleAccountChange = async (updatedAccountInfo: any) => {
+      try {
+        const updatedData = await program.account.playerAccount.fetch(accountKey);
+        queryClient.setQueryData(['playerAccount', cluster, accountKey.toBase58()], updatedData);
+      } catch (error) {
+        console.error('Failed to fetch updated player account data:', error);
       }
-    );
-
-    // Cleanup the subscription when the component unmounts or dependencies change
+    };
+  
+    // Subscribe to account changes
+    const subscriptionId = connection.onAccountChange(accountKey, handleAccountChange);
+  
+    // Cleanup function to remove the listener
     return () => {
       connection.removeAccountChangeListener(subscriptionId);
     };

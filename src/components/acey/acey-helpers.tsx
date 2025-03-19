@@ -20,6 +20,8 @@ export const DEV_AMM_CONFIG = new PublicKey('9zSzfkYy6awexsHvmggeH36pfVUdDGyCcwm
 export const CLUBMOON_POOL_ID = new PublicKey('5SpsdLEnA64NTHLRw2iXAQ2bq4rknA5M7sLmcDbymJxc')
 export const DEV_CLUBMOON_POOL_ID = new PublicKey('5EE9nSoEP9QXyBHSL93BdWHDdCaj81mpEke8EGppKVa6')
 
+export const ADMIN_KEY = new PublicKey('6gkkRU5t8WfXHWNuc6zQ7FoQxybcigLvzJKLz7Z1tGg')
+
 export const SHRINK_RATE = 0.25;
 
 

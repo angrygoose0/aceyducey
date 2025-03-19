@@ -21,6 +21,3 @@ devnet = ["raydium-cpmm-cpi/devnet"]
 anchor-lang = "=0.30.1"
 anchor-spl = { version = "=0.30.1", features = ["memo"] }
 raydium-cpmm-cpi = { git = "https://github.com/raydium-io/raydium-cpi", package = "raydium-cpmm-cpi", branch = "anchor-0.30.1" }
-switchboard-on-demand = "0.3.4"
-
-

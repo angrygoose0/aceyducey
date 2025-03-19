@@ -1,5 +1,5 @@
 {
-  "address": "Hvd26mSxSWLxVvNmWxQ3hVvs8Jpnj5zrF9JSTiii1ofV",
+  "address": "BxssN5c6KsaV9y9do1oHvqSFdqWwyj5oe8H9QBTaeeCV",
   "metadata": {
     "name": "acey",
     "version": "0.1.0",
@@ -503,6 +503,10 @@
           }
         },
         {
+          "name": "admin",
+          "writable": true
+        },
+        {
           "name": "treasury_solana_account",
           "writable": true,
           "pda": {
@@ -598,6 +602,10 @@
           }
         },
         {
+          "name": "admin",
+          "writable": true
+        },
+        {
           "name": "treasury_solana_account",
           "writable": true,
           "pda": {
@@ -669,6 +677,10 @@
               }
             ]
           }
+        },
+        {
+          "name": "admin",
+          "writable": true
         },
         {
           "name": "player_account",
@@ -864,6 +876,11 @@
       "code": 6002,
       "name": "InvalidMint",
       "msg": "Wrong mint"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidAdmin",
+      "msg": "Invalid admin"
     }
   ],
   "types": [

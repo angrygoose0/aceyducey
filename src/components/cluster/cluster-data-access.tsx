@@ -26,7 +26,7 @@ export enum ClusterNetwork {
 export const defaultClusters: Cluster[] = [
   {
     name: 'devnet',
-    endpoint: clusterApiUrl('devnet'),
+    endpoint: "https://devnet.helius-rpc.com/?api-key=b37b0dec-864c-450b-83f7-7a2f839ba994",
     network: ClusterNetwork.Devnet,
   },
   { name: 'local', endpoint: 'http://localhost:8899' },

@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/acey.json`.
  */
 export type Acey = {
-  "address": "Hvd26mSxSWLxVvNmWxQ3hVvs8Jpnj5zrF9JSTiii1ofV",
+  "address": "BxssN5c6KsaV9y9do1oHvqSFdqWwyj5oe8H9QBTaeeCV",
   "metadata": {
     "name": "acey",
     "version": "0.1.0",
@@ -509,6 +509,10 @@ export type Acey = {
           }
         },
         {
+          "name": "admin",
+          "writable": true
+        },
+        {
           "name": "treasurySolanaAccount",
           "writable": true,
           "pda": {
@@ -604,6 +608,10 @@ export type Acey = {
           }
         },
         {
+          "name": "admin",
+          "writable": true
+        },
+        {
           "name": "treasurySolanaAccount",
           "writable": true,
           "pda": {
@@ -675,6 +683,10 @@ export type Acey = {
               }
             ]
           }
+        },
+        {
+          "name": "admin",
+          "writable": true
         },
         {
           "name": "playerAccount",
@@ -870,6 +882,11 @@ export type Acey = {
       "code": 6002,
       "name": "invalidMint",
       "msg": "Wrong mint"
+    },
+    {
+      "code": 6003,
+      "name": "invalidAdmin",
+      "msg": "Invalid admin"
     }
   ],
   "types": [

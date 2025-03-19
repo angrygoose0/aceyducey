@@ -21,7 +21,7 @@ use raydium_cpmm_cpi::{
 
 pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-declare_id!("Hvd26mSxSWLxVvNmWxQ3hVvs8Jpnj5zrF9JSTiii1ofV");
+declare_id!("BxssN5c6KsaV9y9do1oHvqSFdqWwyj5oe8H9QBTaeeCV");
 
 #[program]
 pub mod acey {
@@ -31,11 +31,12 @@ pub mod acey {
     pub const ANTE_PRICE: u64 = 10_000_000; //0.01 sol
 
     pub const WAIT_TIME: i64 = 120; //2 minutes
-
-    pub const ADMIN: Pubkey = pubkey!("SAFE3yY1gvuD78yaXqxnSKuUf5fYCxLb2TVzpuPdkHM");
-
-    pub const CLUBMOON_MINT: Pubkey = pubkey!("D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMAb6zeZhZYgoos");
+    
+    pub const CLUBMOON_MINT: Pubkey = pubkey!("5gVSqhk41VA8U6U4Pvux6MSxFWqgptm3w58X9UTGpump");
     pub const SOLANA_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+
+    pub const ADMIN_PUBLIC_KEY: Pubkey = pubkey!("6gkkRU5t8WfXHWNuc6zQ7FoQxybcigLvzJKLz7Z1tGg");
+    pub const FEE_PERCENTAGE: u8 = 100; // divide by 100 so 1%
 
     pub fn init_game(
         ctx: Context<InitializeGame>,
@@ -78,6 +79,13 @@ pub mod acey {
         ctx: Context<PlayerJoin>,
         user_name: String,
     ) -> Result<()> {
+        require!(
+            ctx.accounts.admin.key() == ADMIN_PUBLIC_KEY,
+            CustomError::InvalidAdmin,
+        );
+
+        
+
         let game_account = &mut ctx.accounts.game_account;
         let new_id: u64 = game_account.player_no + 1;
 
@@ -92,9 +100,20 @@ pub mod acey {
 
         game_account.currently_playing += 1;
 
-        game_account.pot_amount += game_account.entry_price;
+        let fees = game_account.entry_price * FEE_PERCENTAGE as u64 / 10000;
+        let fee_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            system_program::Transfer {
+                from: ctx.accounts.signer.to_account_info().clone(),
+                to: ctx.accounts.admin.to_account_info().clone(),
+            },
+        );
+        system_program::transfer(fee_context, fees)?; //sol transferred to treasury
 
-        
+        let amount_after_fees = game_account.entry_price - fees;
+
+        game_account.pot_amount += amount_after_fees;
+
 
         let player_account = &mut ctx.accounts.player_account;
         player_account.user = ctx.accounts.signer.key();
@@ -109,7 +128,7 @@ pub mod acey {
                 to: ctx.accounts.treasury_solana_account.to_account_info().clone(),
             },
         );
-        system_program::transfer(cpi_context, game_account.entry_price)?; //sol transferred to treasury
+        system_program::transfer(cpi_context, amount_after_fees)?; //sol transferred to treasury
 
         sync_native(CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -124,6 +143,11 @@ pub mod acey {
     pub fn player_ante(
         ctx: Context<PlayerAnte>
     ) -> Result<()> {
+        require!(
+            ctx.accounts.admin.key() == ADMIN_PUBLIC_KEY,
+            CustomError::InvalidAdmin,
+        );
+
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &ctx.accounts.player_account;
 
@@ -147,7 +171,19 @@ pub mod acey {
             CustomError::Unauthorized
         );
 
-        game_account.pot_amount += game_account.ante_price;
+        let fees = game_account.ante_price * FEE_PERCENTAGE as u64 / 10000;
+        let fee_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            system_program::Transfer {
+                from: ctx.accounts.signer.to_account_info().clone(),
+                to: ctx.accounts.admin.to_account_info().clone(),
+            },
+        );
+        system_program::transfer(fee_context, fees)?; //sol transferred to treasury
+
+        let amount_after_fees = game_account.ante_price - fees;
+
+        game_account.pot_amount += amount_after_fees;
 
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -156,7 +192,7 @@ pub mod acey {
                 to: ctx.accounts.treasury_solana_account.to_account_info().clone(),
             },
         );
-        system_program::transfer(cpi_context, game_account.ante_price)?; // sol transferred to treasury
+        system_program::transfer(cpi_context, amount_after_fees)?; // sol transferred to treasury
 
         sync_native(CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -194,6 +230,11 @@ pub mod acey {
         bet_amount: u64,
     ) -> Result<()> {
 
+        require!(
+            ctx.accounts.admin.key() == ADMIN_PUBLIC_KEY,
+            CustomError::InvalidAdmin,
+        );
+
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &ctx.accounts.player_account;
 
@@ -221,8 +262,20 @@ pub mod acey {
             CustomError::Unauthorized
         );
 
-        game_account.pot_amount += bet_amount;
-        game_account.current_bet = bet_amount;
+        let fees = bet_amount * FEE_PERCENTAGE as u64 / 10000;
+        let fee_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            system_program::Transfer {
+                from: ctx.accounts.signer.to_account_info().clone(),
+                to: ctx.accounts.admin.to_account_info().clone(),
+            },
+        );
+        system_program::transfer(fee_context, fees)?; //sol transferred to treasury
+
+        let amount_after_fees = bet_amount - fees;
+
+        game_account.pot_amount += amount_after_fees;
+        game_account.current_bet = amount_after_fees;
 
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -231,7 +284,7 @@ pub mod acey {
                 to: ctx.accounts.treasury_solana_account.to_account_info().clone(),
             },
         );
-        system_program::transfer(cpi_context, bet_amount)?; //sol transferred to treasury
+        system_program::transfer(cpi_context, amount_after_fees)?; //sol transferred to treasury
 
         sync_native(CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -550,6 +603,9 @@ pub struct PlayerJoin<'info> {
     )]
     pub game_account: Account<'info, GameAccount>,
 
+    #[account(mut)]
+    pub admin: SystemAccount<'info>,
+
     #[account(
         init,
         payer = signer,
@@ -629,6 +685,8 @@ pub struct PlayerAnte<'info> {
     )]
     pub player_account: Account<'info, PlayerAccount>,
 
+    #[account(mut)]
+    pub admin: SystemAccount<'info>,
 
     #[account(
         mut,
@@ -683,7 +741,6 @@ pub struct PlayerClaim<'info> {
 
     
     #[account(
-        address = RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET,
     )]
     pub cp_swap_program: Program<'info, RaydiumCpmm>,
 
@@ -773,4 +830,6 @@ pub enum CustomError {
     BetBiggerThanPot,
     #[msg("Wrong mint")]
     InvalidMint,
+    #[msg("Invalid admin")]
+    InvalidAdmin,
 }
