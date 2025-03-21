@@ -401,26 +401,32 @@ export function ShowGame() {
           src={`/cards/${getCardSvgFilename(gameAccount.card1)}`}
           alt={`Card ${gameAccount.card1}`}
           width={150}
-          height={120} // Adjusted height proportionally
-          className="shadow-lg rounded-lg"
+          height={120} 
+          priority
+          className="shadow-lg rounded-lg w-[150px] h-auto"
         />
 
         <Image
           src={`/cards/${getCardSvgFilename(gameAccount.card3)}`}
           alt={`Card ${gameAccount.card3}`}
           width={180}
-          height={144} // Adjusted height proportionally
-          className="shadow-lg rounded-lg"
+          height={144} 
+          priority
+          className="shadow-lg rounded-lg w-[180px] h-auto"
         />
 
         <Image
           src={`/cards/${getCardSvgFilename(gameAccount.card2)}`}
           alt={`Card ${gameAccount.card2}`}
           width={150}
-          height={120} // Adjusted height proportionally
-          className="shadow-lg rounded-lg"
+          height={120} 
+          priority
+          className="shadow-lg rounded-lg w-[150px] h-auto"
         />
       </div>
+
+
+
       
 
       <ProgressiveDivs allPlayers={allPlayers} gameAccount={gameAccount}/>
@@ -455,7 +461,7 @@ export function ShowGame() {
           </div>
         )}
 
-        {playerAccount.id.eq(gameAccount.currentPlayerId) && (
+        {playerAccount.id.eq(gameAccount.currentPlayerId) && !playerAccount.id.eq(ZERO) && (
           <div className="space-y-2">
             <button className="btn btn-xs shadow-lg" onClick={handleNextTurnButton}>
               Next Turn

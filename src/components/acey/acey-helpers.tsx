@@ -14,7 +14,7 @@ export const DEV_CLUBMOON_MINT = new PublicKey('D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMA
 export const RAYDIUM_DEVNET_CPMM_PROGRAM_ID = new PublicKey('CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW')
 export const RAYDIUM_CPMM_PROGRAM_ID = new PublicKey('CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C')
 
-export const AMM_CONFIG = new PublicKey('D4FPEruKEHrG5TenZ2mpDGEfu1iUvTiqBxvpU8HLBvC2')
+export const AMM_CONFIG = new PublicKey('G95xxie3XbkCqtE39GgQ9Ggc7xBC8Uceve7HFDEFApkc')
 export const DEV_AMM_CONFIG = new PublicKey('9zSzfkYy6awexsHvmggeH36pfVUdDGyCcwmjT3AQPBj6')
 
 export const CLUBMOON_POOL_ID = new PublicKey('5SpsdLEnA64NTHLRw2iXAQ2bq4rknA5M7sLmcDbymJxc')
