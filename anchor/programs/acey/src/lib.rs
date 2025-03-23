@@ -21,7 +21,7 @@ use raydium_cpmm_cpi::{
 
 pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-declare_id!("BxssN5c6KsaV9y9do1oHvqSFdqWwyj5oe8H9QBTaeeCV");
+declare_id!("DHFjHSbBBNTHTU5NyQGiWW3i3Pq1TGU9D1Vk98K4bsU9");
 
 #[program]
 pub mod acey {
@@ -378,6 +378,8 @@ pub mod acey {
                     &signer,
                 );
                 cpi::swap_base_input(cpi_context, game_account.current_bet, 0);
+
+                game_account.pot_amount -= game_account.current_bet;
 
 
                 msg!("You won! card3 ({}) is between {} and {}", card3, low, high);
