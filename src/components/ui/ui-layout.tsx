@@ -19,7 +19,7 @@ export function UiLayout({ children, links }: { children: ReactNode; links: { la
 
   setInterval(() => {
     window.location.reload();
-  }, 3000);
+  }, 5000);
 
   return (
     <div className="h-full flex font-mono">
