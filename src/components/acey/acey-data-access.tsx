@@ -213,6 +213,7 @@ export function useGameAccount() {
     queryFn: async () => {
       return program.account.gameAccount.fetch(gameAccountKey);
     },
+    refetchInterval: 3000, // Poll every 3 seconds
   });
   
   useEffect(() => {

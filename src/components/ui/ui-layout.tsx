@@ -17,9 +17,12 @@ import { InitGameButton, ShowGame } from '../acey/acey-ui'
 export function UiLayout({ children, links }: { children: ReactNode; links: { label: string; path: string }[] }) {
   const pathname = usePathname()
 
-  setInterval(() => {
+  {/*
+    setInterval(() => {
     window.location.reload();
   }, 5000);
+  */}
+  
 
   return (
     <div className="h-full flex font-mono">
