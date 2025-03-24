@@ -492,7 +492,7 @@ export function ShowGame() {
 
 
 
-      {/*
+      
       <pre>
         {JSON.stringify(
           Object.fromEntries(
@@ -502,7 +502,7 @@ export function ShowGame() {
           2
         )}
       </pre>
-      */}
+      
     
     </div>
   );

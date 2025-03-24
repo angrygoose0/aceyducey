@@ -214,31 +214,32 @@ export function useGameAccount() {
       return program.account.gameAccount.fetch(gameAccountKey);
     },
   });
-
   
   useEffect(() => {
-    const subscriptionId = connection.onAccountChange(
-      gameAccountKey,
-      async (updatedAccountInfo) => {
-        try {
-          const updatedData = await program.account.gameAccount.fetch(gameAccountKey);
-          // Update the game account query with the new data
-          queryClient.setQueryData(['gameAccount', cluster, gameAccountKey.toBase58()], updatedData);
-  
-          // Manually refetch the playersQuery when gameAccount changes
-          queryClient.invalidateQueries({
-            queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster]
-          });
-        } catch (error) {
-          console.error('Failed to fetch updated game account data:', error);
-        }
+    const fetchAndUpdate = async () => {
+      try {
+        const updatedData = await program.account.gameAccount.fetch(gameAccountKey);
+        queryClient.setQueryData(['gameAccount', cluster, gameAccountKey.toBase58()], updatedData);
+        queryClient.invalidateQueries({
+          queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster]
+        });
+      } catch (error) {
+        console.error('Failed to fetch updated game account data:', error);
       }
-    );
+    };
+  
+    // Real-time subscription
+    const subscriptionId = connection.onAccountChange(gameAccountKey, fetchAndUpdate);
+  
+    // Polling every 3 seconds
+    const intervalId = setInterval(fetchAndUpdate, 1000);
   
     return () => {
       connection.removeAccountChangeListener(subscriptionId);
+      clearInterval(intervalId);
     };
   }, [connection, gameAccountKey, program, cluster, queryClient]);
+  
   
   const playersQuery = useQuery({
     queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster], 
