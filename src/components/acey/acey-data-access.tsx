@@ -158,7 +158,7 @@ export function useGameAccount() {
   const gameAccountKey = PublicKey.findProgramAddressSync(gameSeeds, programId)[0];
 
   const userPlayerAccountQuery = useQuery({
-    queryKey: ['userPlayerAccount', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
+    queryKey: ['userPlayerAccount', gameAccountKey.toBase58(), publicKey?.toBase58()],
     queryFn: async () => {
       if (!publicKey) return null;
   
@@ -186,11 +186,11 @@ export function useGameAccount() {
       async (updatedAccountInfo) => {
         if (!updatedAccountInfo || updatedAccountInfo.data.length === 0) {
           // Account is closed, set query data to null
-          queryClient.setQueryData(['userPlayerAccount', cluster, gameAccountKey.toBase58(), publicKey.toBase58() ], null);
+          queryClient.setQueryData(['userPlayerAccount', gameAccountKey.toBase58(), publicKey.toBase58() ], null);
         } else {
           try {
             const updatedData = await program.account.playerAccount.fetch(playerAccountKey);
-            queryClient.setQueryData(['userPlayerAccount', cluster, gameAccountKey.toBase58(), publicKey.toBase58() ], updatedData);
+            queryClient.setQueryData(['userPlayerAccount', gameAccountKey.toBase58(), publicKey.toBase58() ], updatedData);
   
             // **Refetch the query to ensure consistency**
             refetch();
@@ -209,7 +209,7 @@ export function useGameAccount() {
 
 
   const gameAccountQuery = useQuery({
-    queryKey: ['gameAccount', cluster, gameAccountKey.toBase58()],
+    queryKey: ['gameAccount', gameAccountKey.toBase58()],
     queryFn: async () => {
       return program.account.gameAccount.fetch(gameAccountKey);
     },
@@ -219,9 +219,9 @@ export function useGameAccount() {
     const fetchAndUpdate = async () => {
       try {
         const updatedData = await program.account.gameAccount.fetch(gameAccountKey);
-        queryClient.setQueryData(['gameAccount', cluster, gameAccountKey.toBase58()], updatedData);
+        queryClient.setQueryData(['gameAccount', gameAccountKey.toBase58()], updatedData);
         queryClient.invalidateQueries({
-          queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster]
+          queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58()]
         });
       } catch (error) {
         console.error('Failed to fetch updated game account data:', error);
@@ -232,17 +232,17 @@ export function useGameAccount() {
     const subscriptionId = connection.onAccountChange(gameAccountKey, fetchAndUpdate);
   
     // Polling every 3 seconds
-    const intervalId = setInterval(fetchAndUpdate, 1000);
+    const intervalId = setInterval(fetchAndUpdate, 3000);
   
     return () => {
       connection.removeAccountChangeListener(subscriptionId);
       clearInterval(intervalId);
     };
-  }, [connection, gameAccountKey, program, cluster, queryClient]);
+  }, [connection, gameAccountKey, program, queryClient]);
   
   
   const playersQuery = useQuery({
-    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58(), cluster], 
+    queryKey: ['playerAccountsQUERY', gameAccountKey.toBase58()], 
     queryFn: async () => {
       if (!publicKey) {
         throw new Error('Wallet not connected');
@@ -284,7 +284,7 @@ export function useGameAccount() {
     Error,
     { userName: string }
   >({
-    mutationKey: ['playerJoin', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
+    mutationKey: ['playerJoin', gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async ({userName}) => {
       try {
         if (publicKey === null) {
@@ -353,7 +353,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['playerAnte', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
+    mutationKey: ['playerAnte', gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -421,7 +421,7 @@ export function useGameAccount() {
     Error,
     {betAmount:BN}
   >({
-    mutationKey: ['playerBet', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
+    mutationKey: ['playerBet', gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async ({betAmount}) => {
       try {
         if (publicKey === null) {
@@ -488,7 +488,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['nextTurn', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
+    mutationKey: ['nextTurn', gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -635,7 +635,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['playerLeave', cluster, gameAccountKey.toBase58(), publicKey?.toBase58() ],
+    mutationKey: ['playerLeave', gameAccountKey.toBase58(), publicKey?.toBase58() ],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -737,7 +737,7 @@ export function useGameAccount() {
     string,
     Error
   >({
-    mutationKey: ['kickPlayer', cluster, gameAccountKey.toBase58(), publicKey?.toBase58()],
+    mutationKey: ['kickPlayer', gameAccountKey.toBase58(), publicKey?.toBase58()],
     mutationFn: async () => {
       try {
         if (publicKey === null) {
@@ -864,12 +864,11 @@ export function usePlayerAccountQuery({
   const provider = useAnchorProvider();
   const program = getAceyProgram(provider);
   const { connection } = useConnection();
-  const {cluster} = useCluster();
   const queryClient = useQueryClient();
 
 
   const playerAccountQuery = useQuery({
-    queryKey: ['playerAccount', cluster, accountKey.toBase58()],
+    queryKey: ['playerAccount', accountKey.toBase58()],
     queryFn: async () => {
       return program.account.playerAccount.fetch(accountKey);
     },
@@ -881,7 +880,7 @@ export function usePlayerAccountQuery({
     const handleAccountChange = async (updatedAccountInfo: any) => {
       try {
         const updatedData = await program.account.playerAccount.fetch(accountKey);
-        queryClient.setQueryData(['playerAccount', cluster, accountKey.toBase58()], updatedData);
+        queryClient.setQueryData(['playerAccount', accountKey.toBase58()], updatedData);
       } catch (error) {
         console.error('Failed to fetch updated player account data:', error);
       }
@@ -894,7 +893,7 @@ export function usePlayerAccountQuery({
     return () => {
       connection.removeAccountChangeListener(subscriptionId);
     };
-  }, [connection, accountKey, program, cluster, queryClient]);
+  }, [connection, accountKey, program, queryClient]);
 
 
 

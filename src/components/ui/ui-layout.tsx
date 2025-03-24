@@ -17,6 +17,10 @@ import { InitGameButton, ShowGame } from '../acey/acey-ui'
 export function UiLayout({ children, links }: { children: ReactNode; links: { label: string; path: string }[] }) {
   const pathname = usePathname()
 
+  setInterval(() => {
+    window.location.reload();
+  }, 3000);
+
   return (
     <div className="h-full flex font-mono">
       {/* Floating Buttons */}
