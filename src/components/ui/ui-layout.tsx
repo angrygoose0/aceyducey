@@ -12,23 +12,40 @@ import {WalletButton} from '../solana/solana-provider'
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
 import { InitGameButton, ShowGame } from '../acey/acey-ui'
+import { useGetBalance } from '../acey/acey-data-access'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { fromLamportsDecimals, ZERO } from '../acey/acey-helpers'
+import BN from 'bn.js'
 
 
 export function UiLayout({ children, links }: { children: ReactNode; links: { label: string; path: string }[] }) {
   const pathname = usePathname()
+  const {publicKey} = useWallet();
+  const {balanceQuery} = useGetBalance({address:publicKey})
 
-  {/*
-    setInterval(() => {
-    window.location.reload();
-  }, 5000);
-  */}
+  console.log(balanceQuery.data);
+
+  const [balance, setBalance] = React.useState(ZERO);
+
+  useEffect(() => {
+    if (balanceQuery.data) {
+      setBalance(new BN(balanceQuery.data));
+    }
+  }, [balanceQuery.data]);
+  
+
+
+
   
 
   return (
     <div className="h-full flex font-mono">
       {/* Floating Buttons */}
-      <div className="fixed top-4 right-4 flex space-x-4 z-50">
+      <div className="fixed top-4 right-4 flex flex-col space-y-2 z-50">
         <WalletButton />
+        <div className="font-mono">
+          Balance: <span className="font-bold">{fromLamportsDecimals(balance)} SOL</span>
+        </div>
       </div>
 
 

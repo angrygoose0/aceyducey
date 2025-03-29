@@ -17,6 +17,30 @@ import { useEffect } from 'react';
 import { sha256 } from "js-sha256";
 import bs58 from 'bs58';
 
+export function useGetBalance({ address }: { address: PublicKey | null }) {
+  const { connection } = useConnection();
+
+  const balanceQuery = useQuery({
+    queryKey: ['get-balance', { endpoint: connection.rpcEndpoint, address }],
+    queryFn: async () => {
+      if (!address) {
+        throw new Error('Address is required');
+      }
+      return connection.getBalance(address);
+    },
+    // Ensure the query is considered fresh for 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Automatically refetch data every 10 minutes
+    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    // Fetch on mount to ensure data is available when the component loads
+    refetchOnMount: true,
+    // Optionally fetch in the background when the user revisits the page/tab
+    refetchOnWindowFocus: false,
+  });
+
+  return { balanceQuery };
+}
+
 export function useAceyProgram() {
   const { connection } = useConnection();
   const { cluster } = useCluster();
@@ -215,6 +239,7 @@ export function useGameAccount() {
     },
     refetchInterval: 3000, // Poll every 3 seconds
   });
+
   
   useEffect(() => {
     const fetchAndUpdate = async () => {

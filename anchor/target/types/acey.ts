@@ -14,6 +14,105 @@ export type Acey = {
   },
   "instructions": [
     {
+      "name": "finishBuyBack",
+      "discriminator": [
+        120,
+        180,
+        212,
+        12,
+        47,
+        196,
+        30,
+        158
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "gameAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "playerAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "gameAccount"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true
+        },
+        {
+          "name": "treasurySolanaAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  97,
+                  110,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "gameAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initGame",
       "discriminator": [
         251,
@@ -650,6 +749,105 @@ export type Acey = {
       ]
     },
     {
+      "name": "playerBuyBack",
+      "discriminator": [
+        97,
+        203,
+        250,
+        195,
+        80,
+        7,
+        254,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "gameAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "playerAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "gameAccount"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true
+        },
+        {
+          "name": "treasurySolanaAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  108,
+                  97,
+                  110,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "gameAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "playerJoin",
       "discriminator": [
         177,
@@ -1033,6 +1231,10 @@ export type Acey = {
                 5
               ]
             }
+          },
+          {
+            "name": "buyBack",
+            "type": "u64"
           }
         ]
       }
@@ -1149,6 +1351,10 @@ export type Acey = {
           {
             "name": "id",
             "type": "u64"
+          },
+          {
+            "name": "buyBack",
+            "type": "u8"
           },
           {
             "name": "userName",

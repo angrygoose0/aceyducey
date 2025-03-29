@@ -58,10 +58,78 @@ pub mod acey {
         game_account.current_player_id = 0;
         game_account.currently_playing = 0;
 
+        game_account.buy_back = 0;
+
 
         Ok(())
     }
 
+    pub fn player_buy_back(
+        ctx: Context<PlayerAnte>
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.admin.key() == ADMIN_PUBLIC_KEY,
+            CustomError::InvalidAdmin,
+        );
+
+        let game_account = &mut ctx.accounts.game_account;
+        let player_account = &mut ctx.accounts.player_account;
+        let current_time = Clock::get()?.unix_timestamp as i64;
+        
+
+        require!(
+            game_account.buy_back > 0,
+            CustomError::Unauthorized,
+        );
+
+        require!(
+            player_account.buy_back == 1,
+            CustomError::Unauthorized,
+        );
+
+        let fees = game_account.entry_price * FEE_PERCENTAGE as u64 / 10000;
+        let fee_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            system_program::Transfer {
+                from: ctx.accounts.signer.to_account_info().clone(),
+                to: ctx.accounts.admin.to_account_info().clone(),
+            },
+        );
+        system_program::transfer(fee_context, fees)?; //sol transferred to treasury
+
+        let amount_after_fees = game_account.entry_price - fees;
+
+        game_account.pot_amount += amount_after_fees;
+
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            system_program::Transfer {
+                from: ctx.accounts.signer.to_account_info().clone(),
+                to: ctx.accounts.treasury_solana_account.to_account_info().clone(),
+            },
+        );
+        system_program::transfer(cpi_context, amount_after_fees)?; // sol transferred to treasury
+
+        sync_native(CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            SyncNative {
+                account: ctx.accounts.treasury_solana_account.to_account_info(),
+            },
+        ))?;
+
+        game_account.buy_back -= 1;
+
+        if game_account.buy_back == 0 {
+            game_account.next_skip_time = current_time + WAIT_TIME;
+        }
+
+        player_account.buy_back = 0;
+
+        Ok(())
+    }
+
+    
+    
     pub fn init_treasuries(
         ctx: Context<InitializeTreasuries>,
     ) -> Result<()> {
@@ -83,8 +151,6 @@ pub mod acey {
             ctx.accounts.admin.key() == ADMIN_PUBLIC_KEY,
             CustomError::InvalidAdmin,
         );
-
-        
 
         let game_account = &mut ctx.accounts.game_account;
         let new_id: u64 = game_account.player_no + 1;
@@ -120,6 +186,7 @@ pub mod acey {
         player_account.game_account = game_account.key();
         player_account.id = new_id;
         player_account.user_name = user_name;
+        player_account.buy_back = 0;
 
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -148,8 +215,15 @@ pub mod acey {
             CustomError::InvalidAdmin,
         );
 
+        
+
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &ctx.accounts.player_account;
+
+        require!(
+            game_account.buy_back == 0,
+            CustomError::Unauthorized
+        );
 
         require!(
             game_account.current_player_id == player_account.id,
@@ -355,7 +429,7 @@ pub mod acey {
             let signer: &[&[&[u8]]] = &[&seeds[..]];
 
             // Check if card3 is within the inclusive range [low, high]
-            if (card3 >= low) && (card3 <= high) {
+            if (card3 > low) && (card3 < high) {
                 // WIN condition
                 let cpi_accounts = cpi::accounts::Swap {
                     payer: ctx.accounts.treasury_solana_account.to_account_info(),
@@ -400,6 +474,30 @@ pub mod acey {
             game_account.key(), 
             &ctx.remaining_accounts
         )?; 
+
+        for account in ctx.remaining_accounts.iter() {
+            let mut data = account.try_borrow_mut_data().map_err(|_| CustomError::Unauthorized)?;
+        
+            let mut remaining_player_account = PlayerAccount::try_deserialize(&mut &data[..])
+                .map_err(|_| CustomError::Unauthorized)?;
+        
+            // ✅ Fail immediately if an unauthorized account is found
+            require!(
+                remaining_player_account.game_account == game_account.key(),
+                CustomError::Unauthorized
+            );
+        
+            // 🔄 Update the buy_back field
+            remaining_player_account.buy_back = 1;
+        
+            // ✅ Serialize the updated data back into the account
+            remaining_player_account
+                .try_serialize(&mut &mut data[..])
+                .map_err(|_| CustomError::Unauthorized)?;
+        }
+
+
+        game_account.buy_back = game_account.currently_playing;
 
         game_account.current_player_id = next_player_id;
 
@@ -451,6 +549,10 @@ pub mod acey {
         
         game_account.currently_playing -= 1;
 
+        if closing_player_account.buy_back == 1 {
+            game_account.buy_back -= 1;
+        }
+
         Ok(())
 
 
@@ -464,6 +566,11 @@ pub mod acey {
         let closing_player_account = &ctx.accounts.closing_player_account;
 
         let current_time = Clock::get()?.unix_timestamp as i64;
+
+        require!(
+            game_account.buy_back == 0,
+            CustomError::Unauthorized
+        );
 
         require!(
             current_time >= game_account.next_skip_time,
@@ -503,6 +610,55 @@ pub mod acey {
         game_account.currently_playing -= 1;
 
         Ok(())
+    }
+
+    pub fn finish_buy_back(
+        ctx: Context<PlayerAnte>
+    ) -> Result<()> {
+        let current_time = Clock::get()?.unix_timestamp as i64;
+        let game_account = &mut ctx.accounts.game_account;
+
+        require!(
+            current_time >= game_account.next_skip_time,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            game_account.buy_back > 0,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            ctx.remaining_accounts.len() == game_account.currently_playing as usize,
+            CustomError::Unauthorized
+        );
+
+        game_account.buy_back = 0;
+        game_account.next_skip_time = current_time + WAIT_TIME;
+
+
+        for account in ctx.remaining_accounts.iter() {
+            let mut data = account.try_borrow_mut_data().map_err(|_| CustomError::Unauthorized)?;
+            
+            let player_account = PlayerAccount::try_deserialize(&mut &data[..])
+                .map_err(|_| CustomError::Unauthorized)?;
+        
+            // Ensure it's a valid PlayerAccount before closing
+            require!(
+                player_account.game_account == game_account.key(),
+                CustomError::Unauthorized
+            );
+        
+            // ✅ Transfer lamports to the signer before closing
+            **ctx.accounts.signer.to_account_info().lamports.borrow_mut() += account.lamports();
+            **account.lamports.borrow_mut() = 0;
+        
+            // ✅ Mark the account for closing
+            **account.try_borrow_mut_lamports()? = 0; // Clears out the lamports
+        }
+
+        Ok(())
+        
     }
 }
 
@@ -743,6 +899,7 @@ pub struct PlayerClaim<'info> {
 
     
     #[account(
+        address = RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET
     )]
     pub cp_swap_program: Program<'info, RaydiumCpmm>,
 
@@ -807,7 +964,11 @@ pub struct GameAccount { //8
     pub card_1: u8, // 1
     pub card_2: u8, // 1
     pub card_3: u8, // 1
+
     _padding: [u8; 5], // Padding to align to 8 bytes
+
+    pub buy_back: u64, // 8   0 is normal, 0< means that amount of ppl need to buy in again
+    
 }
 
 #[account]
@@ -817,6 +978,8 @@ pub struct PlayerAccount { //8
     pub game_account: Pubkey, //32
 
     pub id: u64, //8
+
+    pub buy_back: u8, //1  0 means fine, 1 means need to buy in
 
     #[max_len(100)]  
     pub user_name: String,
