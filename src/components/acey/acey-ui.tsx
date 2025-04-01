@@ -400,7 +400,7 @@ export function ShowGame() {
 
       if (!betAmount) throw new Error("Fill in bet amount")
 
-      if (betAmount > gameAccount.potAmount) throw new Error("Bet is bigger than the pot")
+      if (betAmount.gt(gameAccount.potAmount)) throw new Error("Bet is bigger than the pot")
 
       await playerBet.mutateAsync({betAmount});
 
