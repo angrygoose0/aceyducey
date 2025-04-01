@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/acey.json`.
  */
 export type Acey = {
-  "address": "Av3xwJunX5Crq1FXmq6XX2agwfD1Meb7jARgR5bs6qXb",
+  "address": "Cdmw4rsx5QjjNiV1ar4QZCLBqstPJGboDkjP5x96ATXR",
   "metadata": {
     "name": "acey",
     "version": "0.1.0",
@@ -1235,6 +1235,10 @@ export type Acey = {
           {
             "name": "buyBack",
             "type": "u64"
+          },
+          {
+            "name": "round",
+            "type": "u64"
           }
         ]
       }
@@ -1353,8 +1357,8 @@ export type Acey = {
             "type": "u64"
           },
           {
-            "name": "buyBack",
-            "type": "u8"
+            "name": "round",
+            "type": "u64"
           },
           {
             "name": "userName",

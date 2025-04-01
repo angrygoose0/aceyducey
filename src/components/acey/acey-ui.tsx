@@ -50,10 +50,13 @@ function PlayerCard({ accountKey, index, midpoint, count, gameAccount }: {
 }) {
   const { playerAccountQuery } = usePlayerAccountQuery({ accountKey });
 
+
   const [playerAccount, setPlayerAccount] = useState({
     user: EMPTY_PUBLIC_KEY,
     id: ZERO,
     userName: "",
+    gameAccount: EMPTY_PUBLIC_KEY,
+    round: ZERO,
   });
 
   useEffect(() => {
@@ -87,6 +90,7 @@ function PlayerCard({ accountKey, index, midpoint, count, gameAccount }: {
     >
       <p className="font-bold text-xl">{playerAccount.userName}</p>
       <p className="mt-2 text-md">{shortenString(playerAccount.user.toBase58())}</p>
+      <p>{playerAccount.id.toNumber()}</p>
       {(playerAccount.id.eq(gameAccount.currentPlayerId)) && 
         gameAccount.card1 !== 0 && 
         gameAccount.card2 !== 0 && (
@@ -103,6 +107,41 @@ function PlayerCard({ accountKey, index, midpoint, count, gameAccount }: {
           </>
         )
       }
+    </div>
+  );
+}
+
+
+export function ShowPlayer({ accountKey, round }: { 
+  accountKey: PublicKey; 
+  round: BN;
+}) {
+  const { playerAccountQuery } = usePlayerAccountQuery({ accountKey });
+
+  const [playerAccount, setPlayerAccount] = useState({
+    user: EMPTY_PUBLIC_KEY,
+    id: ZERO,
+    userName: "",
+    round: ZERO,
+  });
+
+  useEffect(() => {
+    if (playerAccountQuery.data) {
+      setPlayerAccount(playerAccountQuery.data);
+    }
+  }, [playerAccountQuery.data]);
+
+  const isHighlighted = round.eq(playerAccount.round);
+
+  return (
+    <div
+      key={accountKey.toString()}
+      className={`relative p-2 rounded-lg flex-shrink-0 shadow-lg ${
+        isHighlighted ? "bg-purple-200" : "bg-white"
+      }`}
+    >
+      <p className="font-bold text-md">{playerAccount.userName}</p>
+      <p className="mt-2 text-xs">{shortenString(playerAccount.user.toBase58())}</p>
     </div>
   );
 }
@@ -148,13 +187,15 @@ export function ProgressiveDivs({
 
 
 
+
+
 export function ShowGame() {
-  const { gameAccountQuery, playerJoin, playersQuery, playerAnte, playerBet, playerLeave, kickPlayer, nextTurn, userPlayerAccountQuery } = useGameAccount();
+  const { gameAccountQuery, playerJoin, playersQuery, playerAnte, finishBuyBack, playerBuyBack, playerBet, playerLeave, kickPlayer, nextTurn, userPlayerAccountQuery } = useGameAccount();
 
   const {publicKey} = useWallet();
   
 
-  const [allPlayers, setAllPlayers] = useState<{ pubkey: PublicKey; id: BN }[]>([]);
+  const [allPlayers, setAllPlayers] = useState<{ pubkey: PublicKey; id: BN; }[]>([]);
 
   
   const [gameAccount, setGameAccount] = useState<{
@@ -169,6 +210,8 @@ export function ShowGame() {
     card1: number;
     card2: number;
     card3: number;
+    buyBack: BN;
+    round: BN;
   }>({
     entryPrice: ZERO,
     antePrice: ZERO,
@@ -181,18 +224,13 @@ export function ShowGame() {
     card1: 0,
     card2: 0,
     card3: 0,
+    buyBack: ZERO,
+    round: ZERO,
   });
 
 
 
-  const [playerAccount, setPlayerAccount] = useState<{
-    id: BN;
-    user_name: string;
-
-  }>({
-    id: ZERO,
-    user_name: "",
-  });
+  
 
   const [userName, setUserName] = useState("");
   const [betAmount, setBetAmount] = useState<BN | null>(null);
@@ -223,6 +261,7 @@ export function ShowGame() {
       .join(":");
   };
 
+  //console.log(gameAccountQuery.data);
 
   useEffect(() => {
     if (gameAccountQuery.data) {
@@ -238,27 +277,27 @@ export function ShowGame() {
         card1: gameAccountQuery.data.card1,
         card2: gameAccountQuery.data.card2,
         card3: gameAccountQuery.data.card3,
+        buyBack: gameAccountQuery.data.buyBack,
+        round: gameAccountQuery.data.round,
       });
     }
   }, [gameAccountQuery.data]);
   
 
+  const [playerAccount, setPlayerAccount] = useState({
+    user: EMPTY_PUBLIC_KEY,
+    id: ZERO,
+    userName: "",
+    gameAccount: EMPTY_PUBLIC_KEY,
+    round: ZERO,
+  });
 
-  
   useEffect(() => {
     if (userPlayerAccountQuery.data) {
-      setPlayerAccount({
-        id: userPlayerAccountQuery.data.id,
-        user_name: userPlayerAccountQuery.data.userName,
-      });
-    } else {
-      // Reset to default values when data is null
-      setPlayerAccount({
-        id: ZERO,
-        user_name: "",
-      });
+      setPlayerAccount(userPlayerAccountQuery.data);
     }
   }, [userPlayerAccountQuery.data]);
+  
 
   useEffect(() => {
     if (playersQuery.data && Array.isArray(playersQuery.data)) {
@@ -316,6 +355,19 @@ export function ShowGame() {
     }
   }, [playerJoin, publicKey, userName]);
 
+  const handleFinishBuyBackButton = useCallback(async () => {
+    try {
+      if (!publicKey) throw new Error("Wallet is not connected.");
+
+      await finishBuyBack.mutateAsync();
+
+      toast.success("game joined successfully!");
+    } catch (error: any) {
+      console.error("Error joining game:", error);
+      toast.error("Failed to join game");
+    }
+  }, [finishBuyBack, publicKey, userName]);
+
   const handleAnteButton = useCallback(async () => {
     try {
       if (!publicKey) throw new Error("Wallet is not connected.");
@@ -329,20 +381,35 @@ export function ShowGame() {
     }
   }, [playerAnte, publicKey]);
 
+  const handleBuyBackButton = useCallback(async () => {
+    try {
+      if (!publicKey) throw new Error("Wallet is not connected.");
+
+      await playerBuyBack.mutateAsync();
+
+      toast.success("ante sent successfully!");
+    } catch (error: any) {
+      console.error("Error buying back:", error);
+      toast.error("Failed to send ante");
+    }
+  }, [playerBuyBack, publicKey]);
+
   const handleBetButton = useCallback(async () => {
     try {
       if (!publicKey) throw new Error("Wallet is not connected.");
 
       if (!betAmount) throw new Error("Fill in bet amount")
 
+      if (betAmount > gameAccount.potAmount) throw new Error("Bet is bigger than the pot")
+
       await playerBet.mutateAsync({betAmount});
 
       toast.success("bet sent successfully!");
     } catch (error: any) {
       console.error("Error sending bet:", error);
-      toast.error("Failed to send bet");
+      toast.error(`Failed to send bet: ${error.message || error}`);
     }
-  }, [playerBet, publicKey, betAmount]);
+  }, [playerBet, publicKey, betAmount, gameAccount.potAmount]);
 
   const handleNextTurnButton = useCallback(async () => {
     try {
@@ -429,71 +496,119 @@ export function ShowGame() {
 
 
       
+      {gameAccount.buyBack.eq(ZERO) ? (
+        <ProgressiveDivs allPlayers={allPlayers} gameAccount={gameAccount} />
+      ) : (
+        <div>
+          {allPlayers.map((player) => (
+            <div key={player.pubkey.toString()} className="p-2 border-b">
+              <ShowPlayer accountKey={player.pubkey} round={gameAccount.round} />
+            </div>
+          ))}
+        </div>
+      )}
+      
 
-      <ProgressiveDivs allPlayers={allPlayers} gameAccount={gameAccount}/>
+      
 
       <div className="py-4 space-y-2">
-        {playerAccount.id.eq(ZERO) ? (
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
-              onChange={handleUsernameFormFieldChange}
-              value={userName}
-              placeholder="Select Username"
-            />
-            <button className="btn btn-xs shadow-lg" onClick={handleJoinGameButton}>
-              Join Game
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center space-x-2">
-            <button className="btn btn-xs shadow-lg" onClick={handleLeaveButton}>
-              Leave
-            </button>
-            {timeLeft(gameAccount.nextSkipTime.toNumber()) !== "00:00:00" && (
-              <span>{timeLeft(gameAccount.nextSkipTime.toNumber())}</span>
-            )}
-            {timeLeft(gameAccount.nextSkipTime.toNumber()) === "00:00:00" && (
-              <button className="btn btn-xs shadow-lg" onClick={handleKickButton}>
-                Kick
-              </button>
-            )}
-          </div>
-        )}
-
-        {playerAccount.id.eq(gameAccount.currentPlayerId) && !playerAccount.id.eq(ZERO) && (
-          <div className="space-y-2">
-            <button className="btn btn-xs shadow-lg" onClick={handleNextTurnButton}>
-              Next Turn
-            </button>
-            {gameAccount.card1 === 0 && gameAccount.card2 === 0 ? (
-              <button className="btn btn-xs shadow-lg" onClick={handleAnteButton}>
-                Ante
-              </button>
-            ) : gameAccount.card3 === 0 ? (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="number"
-                  className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
-                  onChange={handleBetFormFieldChange}
-                  value={betAmount ? fromLamportsDecimals(betAmount) : ""}
-                  placeholder="Set bet (SOL)"
-                />
-                <button className="btn btn-xs shadow-lg" onClick={handleBetButton}>
-                  Bet
+       {playerAccount.id.eq(ZERO) ? (
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
+            onChange={handleUsernameFormFieldChange}
+            value={userName}
+            placeholder="Select Username"
+          />
+          <button className="btn btn-xs shadow-lg" onClick={handleJoinGameButton}>
+            Join Game
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center space-x-2">
+          <button className="btn btn-xs shadow-lg" onClick={handleLeaveButton}>
+            Leave
+          </button>
+          {gameAccount.buyBack.eq(ZERO) && (
+            <>
+              {timeLeft(gameAccount.nextSkipTime.toNumber()) !== "00:00:00" && (
+                <span>{timeLeft(gameAccount.nextSkipTime.toNumber())}</span>
+              )}
+              {timeLeft(gameAccount.nextSkipTime.toNumber()) === "00:00:00" && (
+                <button className="btn btn-xs shadow-lg" onClick={handleKickButton}>
+                  Kick
                 </button>
-              </div>
-            ): null}
-          </div>
-        )}
+              )}
+            </>
+          )}
+          
+        </div>
+      )}
+
+      {gameAccount.buyBack.eq(ZERO) ? (
+        <>
+          {playerAccount.id.eq(gameAccount.currentPlayerId) && !playerAccount.id.eq(ZERO) && (
+            <div className="space-y-2">
+              <button className="btn btn-xs shadow-lg" onClick={handleNextTurnButton}>
+                Next Turn
+              </button>
+              {gameAccount.card1 === 0 && gameAccount.card2 === 0 ? (
+                <button className="btn btn-xs shadow-lg" onClick={handleAnteButton}>
+                  Ante
+                </button>
+              ) : gameAccount.card3 === 0 ? (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    className="input input-bordered w-auto max-w-xs h-6 shadow-lg"
+                    onChange={handleBetFormFieldChange}
+                    value={betAmount ? fromLamportsDecimals(betAmount) : ""}
+                    placeholder="Set bet (SOL)"
+                  />
+                  <button className="btn btn-xs shadow-lg" onClick={handleBetButton}>
+                    Bet
+                  </button>
+                </div>
+              ): null}
+            </div>
+          )}
+        </>
+
+      ) : (
+        <>
+          {gameAccount.round.eq(playerAccount.round) ? (
+            timeLeft(gameAccount.nextSkipTime.toNumber()) !== "00:00:00" ? (
+              <span>{timeLeft(gameAccount.nextSkipTime.toNumber())}</span>
+            ) : (
+
+              <button className="btn btn-xs shadow-lg" onClick={handleFinishBuyBackButton}>
+                Finish Buy Back
+              </button>
+            )
+          ) : (
+              <button className="btn btn-xs shadow-lg" onClick={handleBuyBackButton}>
+                Buy Back
+              </button>
+          )}
+        </>
+       
+      
+      
+      )}   
+          
+            
+          
+        
+        
+        
       </div>
 
 
 
 
 
-      {/*
+      
       <pre>
         {JSON.stringify(
           Object.fromEntries(
@@ -503,7 +618,7 @@ export function ShowGame() {
           2
         )}
       </pre>
-      */}
+      
       
     
     </div>

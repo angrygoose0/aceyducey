@@ -3,6 +3,8 @@ solana program deploy target/deploy/acey.so --with-compute-unit-price 300000 --u
 solana-keygen new --outfile target/deploy/acey-keypair.json --force 
 anchor keys sync
 
+anchor build -- --features devnet
+
 solana program close 27GsfeibJMv8hftdRzaoSTgnCUB7RqnjUAnWW6EBiJub --bypass-warning
 
 https://boldest-thrilling-market.solana-mainnet.quiknode.pro/b4c82bf3b9abce9c0f2a06b213b35da920beaf58/

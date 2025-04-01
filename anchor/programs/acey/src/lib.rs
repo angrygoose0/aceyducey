@@ -21,7 +21,7 @@ use raydium_cpmm_cpi::{
 
 pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-declare_id!("Av3xwJunX5Crq1FXmq6XX2agwfD1Meb7jARgR5bs6qXb");
+declare_id!("Cdmw4rsx5QjjNiV1ar4QZCLBqstPJGboDkjP5x96ATXR");
 
 #[program]
 pub mod acey {
@@ -32,11 +32,15 @@ pub mod acey {
 
     pub const WAIT_TIME: i64 = 120; //2 minutes
     
-    pub const CLUBMOON_MINT: Pubkey = pubkey!("5gVSqhk41VA8U6U4Pvux6MSxFWqgptm3w58X9UTGpump");
+    //pub const CLUBMOON_MINT: Pubkey = pubkey!("5gVSqhk41VA8U6U4Pvux6MSxFWqgptm3w58X9UTGpump");
+    pub const CLUBMOON_MINT: Pubkey = pubkey!("D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMAb6zeZhZYgoos");
+
     pub const SOLANA_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
     pub const ADMIN_PUBLIC_KEY: Pubkey = pubkey!("6gkkRU5t8WfXHWNuc6zQ7FoQxybcigLvzJKLz7Z1tGg");
     pub const FEE_PERCENTAGE: u8 = 100; // divide by 100 so 1%
+
+    pub const MINIMUM_POT: u64 = 10_000_000; //0.01 sol
 
     pub fn init_game(
         ctx: Context<InitializeGame>,
@@ -59,6 +63,7 @@ pub mod acey {
         game_account.currently_playing = 0;
 
         game_account.buy_back = 0;
+        game_account.round = 0;
 
 
         Ok(())
@@ -83,7 +88,7 @@ pub mod acey {
         );
 
         require!(
-            player_account.buy_back == 1,
+            player_account.round != game_account.round,
             CustomError::Unauthorized,
         );
 
@@ -123,7 +128,7 @@ pub mod acey {
             game_account.next_skip_time = current_time + WAIT_TIME;
         }
 
-        player_account.buy_back = 0;
+        player_account.round = game_account.round;
 
         Ok(())
     }
@@ -186,7 +191,7 @@ pub mod acey {
         player_account.game_account = game_account.key();
         player_account.id = new_id;
         player_account.user_name = user_name;
-        player_account.buy_back = 0;
+        player_account.round = game_account.round;
 
         let cpi_context = CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
@@ -401,8 +406,15 @@ pub mod acey {
             CustomError::InvalidMint,
         );
 
+        
+
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &ctx.accounts.player_account;
+
+        require!(
+            game_account.buy_back == 0,
+            CustomError::Unauthorized
+        );
 
         require!(
             game_account.current_player_id == player_account.id,
@@ -455,6 +467,11 @@ pub mod acey {
 
                 game_account.pot_amount -= game_account.current_bet * 2;
 
+                if game_account.pot_amount <= MINIMUM_POT {
+                    game_account.buy_back = ctx.remaining_accounts.len() as u64;
+                    game_account.round += 1;
+                }
+
 
                 msg!("You won! card3 ({}) is between {} and {}", card3, low, high);
             } else {
@@ -475,29 +492,6 @@ pub mod acey {
             &ctx.remaining_accounts
         )?; 
 
-        for account in ctx.remaining_accounts.iter() {
-            let mut data = account.try_borrow_mut_data().map_err(|_| CustomError::Unauthorized)?;
-        
-            let mut remaining_player_account = PlayerAccount::try_deserialize(&mut &data[..])
-                .map_err(|_| CustomError::Unauthorized)?;
-        
-            // ✅ Fail immediately if an unauthorized account is found
-            require!(
-                remaining_player_account.game_account == game_account.key(),
-                CustomError::Unauthorized
-            );
-        
-            // 🔄 Update the buy_back field
-            remaining_player_account.buy_back = 1;
-        
-            // ✅ Serialize the updated data back into the account
-            remaining_player_account
-                .try_serialize(&mut &mut data[..])
-                .map_err(|_| CustomError::Unauthorized)?;
-        }
-
-
-        game_account.buy_back = game_account.currently_playing;
 
         game_account.current_player_id = next_player_id;
 
@@ -549,7 +543,7 @@ pub mod acey {
         
         game_account.currently_playing -= 1;
 
-        if closing_player_account.buy_back == 1 {
+        if closing_player_account.round != game_account.round {
             game_account.buy_back -= 1;
         }
 
@@ -617,9 +611,15 @@ pub mod acey {
     ) -> Result<()> {
         let current_time = Clock::get()?.unix_timestamp as i64;
         let game_account = &mut ctx.accounts.game_account;
+        let player_account = &ctx.accounts.player_account;
 
         require!(
             current_time >= game_account.next_skip_time,
+            CustomError::Unauthorized
+        );
+
+        require!(
+            player_account.round == game_account.round,
             CustomError::Unauthorized
         );
 
@@ -638,16 +638,26 @@ pub mod acey {
 
 
         for account in ctx.remaining_accounts.iter() {
-            let mut data = account.try_borrow_mut_data().map_err(|_| CustomError::Unauthorized)?;
+            let data = account.try_borrow_mut_data().map_err(|_| CustomError::Unauthorized)?;
             
-            let player_account = PlayerAccount::try_deserialize(&mut &data[..])
+            let player_account_instance = PlayerAccount::try_deserialize(&mut &data[..])
                 .map_err(|_| CustomError::Unauthorized)?;
         
             // Ensure it's a valid PlayerAccount before closing
             require!(
-                player_account.game_account == game_account.key(),
+                player_account_instance.game_account == game_account.key(),
                 CustomError::Unauthorized
             );
+
+            if player_account_instance.round == game_account.round {
+                continue;
+            }
+
+            
+            if player_account_instance.id == game_account.current_player_id {
+                game_account.current_player_id = player_account.id;
+            }
+
         
             // ✅ Transfer lamports to the signer before closing
             **ctx.accounts.signer.to_account_info().lamports.borrow_mut() += account.lamports();
@@ -655,6 +665,8 @@ pub mod acey {
         
             // ✅ Mark the account for closing
             **account.try_borrow_mut_lamports()? = 0; // Clears out the lamports
+
+            game_account.currently_playing -= 1;
         }
 
         Ok(())
@@ -968,6 +980,7 @@ pub struct GameAccount { //8
     _padding: [u8; 5], // Padding to align to 8 bytes
 
     pub buy_back: u64, // 8   0 is normal, 0< means that amount of ppl need to buy in again
+    pub round: u64 // 8   what round is it?
     
 }
 
@@ -979,7 +992,7 @@ pub struct PlayerAccount { //8
 
     pub id: u64, //8
 
-    pub buy_back: u8, //1  0 means fine, 1 means need to buy in
+    pub round: u64, // 8
 
     #[max_len(100)]  
     pub user_name: String,

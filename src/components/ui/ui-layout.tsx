@@ -23,7 +23,6 @@ export function UiLayout({ children, links }: { children: ReactNode; links: { la
   const {publicKey} = useWallet();
   const {balanceQuery} = useGetBalance({address:publicKey})
 
-  console.log(balanceQuery.data);
 
   const [balance, setBalance] = React.useState(ZERO);
 

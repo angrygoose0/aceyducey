@@ -28,10 +28,8 @@ export function useGetBalance({ address }: { address: PublicKey | null }) {
       }
       return connection.getBalance(address);
     },
-    // Ensure the query is considered fresh for 5 minutes
-    staleTime: 5 * 60 * 1000, // 5 minutes
     // Automatically refetch data every 10 minutes
-    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    refetchInterval: 5000, // 10 minutes
     // Fetch on mount to ensure data is available when the component loads
     refetchOnMount: true,
     // Optionally fetch in the background when the user revisits the page/tab
@@ -106,7 +104,6 @@ export function useInitGame() {
           programId,
         )[0];
 
-        console.log(solanaTreasury.toString());
 
 
         
@@ -141,6 +138,9 @@ export function useInitGame() {
           //.add(addPriorityFee)
           .add(game)
           .add(treasury);
+
+        const simulationResult = await connection.simulateTransaction(transaction);
+        console.log('Simulation Result:', simulationResult);
 
         const signature = await sendTransaction(transaction, connection, {
         });
@@ -234,6 +234,7 @@ export function useGameAccount() {
 
   const gameAccountQuery = useQuery({
     queryKey: ['gameAccount', gameAccountKey.toBase58()],
+    
     queryFn: async () => {
       return program.account.gameAccount.fetch(gameAccountKey);
     },
@@ -442,6 +443,178 @@ export function useGameAccount() {
     },
   });
 
+  const playerBuyBack = useMutation<
+    string,
+    Error
+  >({
+    mutationKey: ['playerBuyBack', gameAccountKey.toBase58(), publicKey?.toBase58()],
+    mutationFn: async () => {
+      try {
+        if (publicKey === null) {
+          throw new Error('Wallet not connected');
+        }
+        /*
+        const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+          units: 16000,
+        });
+
+        const recentPriorityFees = await connection.getRecentPrioritizationFees({
+        });
+        const minFee = Math.min(...recentPriorityFees.map(fee => fee.prioritizationFee));
+
+        const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: minFee + 1,
+        });
+        */
+
+     
+
+
+        const buyBack = await program.methods
+          .playerBuyBack()
+          .accounts({
+            signer:publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            admin: ADMIN_KEY,
+          })
+          .instruction();
+
+        const blockhashContext = await connection.getLatestBlockhashAndContext();
+
+        const transaction = new Transaction({
+          feePayer: publicKey,
+          blockhash: blockhashContext.value.blockhash,
+          lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+        })
+          //.add(modifyComputeUnits)
+          //.add(addPriorityFee)
+          .add(buyBack);
+        const signature = await sendTransaction(transaction, connection, {
+        });
+
+
+        return signature;
+
+      } catch (error) {
+        console.error("Error during transaction processing:", error);
+        throw error;
+      }
+    },
+
+    onSuccess: (signature) => {
+      transactionToast(signature);
+    },
+    onError: (error) => {
+      toast.error(`Error initializing game ${error.message}`);
+      console.error('Toast error:', error);
+    },
+  });
+
+  const finishBuyBack = useMutation<
+    string,
+    Error
+  >({
+    mutationKey: ['finishBuyBack', gameAccountKey.toBase58()],
+    mutationFn: async () => {
+      try {
+        if (publicKey === null) {
+          throw new Error('Wallet not connected');
+        }
+        /*
+        const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+          units: 16000,
+        });
+
+        const recentPriorityFees = await connection.getRecentPrioritizationFees({
+        });
+        const minFee = Math.min(...recentPriorityFees.map(fee => fee.prioritizationFee));
+
+        const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: minFee + 1,
+        });
+        */
+
+        const playerAccountDiscriminator = Buffer.from(sha256.digest('account:PlayerAccount')).slice(
+          0,
+          8
+        );
+  
+        const filters = [
+          {
+            memcmp: { offset: 0, bytes: bs58.encode(playerAccountDiscriminator) },
+          },
+  
+          {
+            memcmp: { offset: 40, bytes: gameAccountKey.toBase58() },
+          },
+        ];
+
+        let offset = 0;
+        let length = 0;
+
+        const accounts = await connection.getProgramAccounts(programId, {
+          dataSlice: { offset, length },
+          filters,
+        });
+
+
+        const remainingAccounts = accounts.map(account => ({
+          pubkey: account.pubkey, // Use the public key from your array
+          isWritable: true,      // Adjust this based on whether the account needs to be writable
+          isSigner: false         // Adjust this based on whether the account is a signer
+        }));
+     
+
+        const finish = await program.methods
+          .finishBuyBack()
+          .accounts({
+            signer:publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            admin: ADMIN_KEY,
+          })
+          .remainingAccounts(remainingAccounts)
+          .instruction();
+
+        
+
+          
+
+        const blockhashContext = await connection.getLatestBlockhashAndContext();
+
+        const transaction = new Transaction({
+          feePayer: publicKey,
+          blockhash: blockhashContext.value.blockhash,
+          lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+        })
+          //.add(modifyComputeUnits)
+          //.add(addPriorityFee)
+          .add(finish);
+
+        const simulationResult = await connection.simulateTransaction(transaction);
+        console.log('Simulation Result:', simulationResult);
+
+        const signature = await sendTransaction(transaction, connection, {
+        });
+
+
+        return signature;
+
+      } catch (error) {
+        console.error("Error during transaction processing:", error);
+        throw error;
+      }
+    },
+
+    onSuccess: (signature) => {
+      transactionToast(signature);
+    },
+    onError: (error) => {
+      toast.error(`Error finishing buy back: ${error.message}`);
+      console.error('Toast error:', error);
+    },
+  });
+
+
   const playerBet = useMutation<
     string,
     Error,
@@ -557,6 +730,7 @@ export function useGameAccount() {
           filters,
         });
 
+
         const remainingAccounts = accounts.map(account => ({
           pubkey: account.pubkey, // Use the public key from your array
           isWritable: false,      // Adjust this based on whether the account needs to be writable
@@ -567,36 +741,34 @@ export function useGameAccount() {
 
         const observationStateSeeds = [
           Buffer.from("observation"),
-          CLUBMOON_POOL_ID.toBuffer(),
+          DEV_CLUBMOON_POOL_ID.toBuffer(),
         ]
 
         const [observationState] = await PublicKey.findProgramAddressSync(
           observationStateSeeds,
-          RAYDIUM_CPMM_PROGRAM_ID,
+          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
         );
-
-        console.log(observationState.toString(), 'overs');
 
         const inputVaultSeeds = [
           Buffer.from("pool_vault"),
-          CLUBMOON_POOL_ID.toBuffer(),
+          DEV_CLUBMOON_POOL_ID.toBuffer(),
           NATIVE_MINT.toBuffer(),
         ];
 
         const inputVault = await PublicKey.findProgramAddressSync(
           inputVaultSeeds,
-          RAYDIUM_CPMM_PROGRAM_ID
+          RAYDIUM_DEVNET_CPMM_PROGRAM_ID
         )[0];
 
         const outputVaultSeeds = [
           Buffer.from("pool_vault"),
-          CLUBMOON_POOL_ID.toBuffer(),
-          CLUBMOON_MINT.toBuffer(),
+          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          DEV_CLUBMOON_MINT.toBuffer(),
         ];
 
         const outputVault = await PublicKey.findProgramAddressSync(
           outputVaultSeeds,
-          RAYDIUM_CPMM_PROGRAM_ID,
+          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
         )[0];
 
 
@@ -604,11 +776,12 @@ export function useGameAccount() {
         const next = await program.methods
         .nextTurn()
         .accounts({
+          cpSwapProgram: RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
           signer: publicKey,
-          clubmoonMint: CLUBMOON_MINT,
+          clubmoonMint: DEV_CLUBMOON_MINT,
           solanaMint: NATIVE_MINT,
-          ammConfig: AMM_CONFIG,
-          poolState: CLUBMOON_POOL_ID,
+          ammConfig: DEV_AMM_CONFIG,
+          poolState: DEV_CLUBMOON_POOL_ID,
           inputVault: inputVault,
           outputVault: outputVault,
           observationState: observationState,
@@ -875,10 +1048,12 @@ export function useGameAccount() {
     playerJoin,
     playersQuery,
     playerAnte,
+    playerBuyBack,
     playerBet,
     playerLeave,
     kickPlayer,
     nextTurn,
+    finishBuyBack,
   };
 }
 

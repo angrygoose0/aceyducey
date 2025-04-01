@@ -1,5 +1,5 @@
 {
-  "address": "Av3xwJunX5Crq1FXmq6XX2agwfD1Meb7jARgR5bs6qXb",
+  "address": "Cdmw4rsx5QjjNiV1ar4QZCLBqstPJGboDkjP5x96ATXR",
   "metadata": {
     "name": "acey",
     "version": "0.1.0",
@@ -1229,6 +1229,10 @@
           {
             "name": "buy_back",
             "type": "u64"
+          },
+          {
+            "name": "round",
+            "type": "u64"
           }
         ]
       }
@@ -1347,8 +1351,8 @@
             "type": "u64"
           },
           {
-            "name": "buy_back",
-            "type": "u8"
+            "name": "round",
+            "type": "u64"
           },
           {
             "name": "user_name",
