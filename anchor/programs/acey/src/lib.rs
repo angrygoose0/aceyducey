@@ -21,7 +21,7 @@ use raydium_cpmm_cpi::{
 
 pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-declare_id!("Cdmw4rsx5QjjNiV1ar4QZCLBqstPJGboDkjP5x96ATXR");
+declare_id!("Gcimy3ZYCVF66FW9KU2i4XokamktDXr4FtHLAEtzXiuQ");
 
 #[program]
 pub mod acey {
@@ -32,8 +32,8 @@ pub mod acey {
 
     pub const WAIT_TIME: i64 = 120; //2 minutes
     
-    //pub const CLUBMOON_MINT: Pubkey = pubkey!("5gVSqhk41VA8U6U4Pvux6MSxFWqgptm3w58X9UTGpump");
-    pub const CLUBMOON_MINT: Pubkey = pubkey!("D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMAb6zeZhZYgoos");
+    pub const CLUBMOON_MINT: Pubkey = pubkey!("5gVSqhk41VA8U6U4Pvux6MSxFWqgptm3w58X9UTGpump");
+    // devnet: pub const CLUBMOON_MINT: Pubkey = pubkey!("D2BYx2UoshNpAfgBEXEEyfUKxLSxkLMAb6zeZhZYgoos");
 
     pub const SOLANA_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
@@ -911,7 +911,6 @@ pub struct PlayerClaim<'info> {
 
     
     #[account(
-        address = RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET
     )]
     pub cp_swap_program: Program<'info, RaydiumCpmm>,
 

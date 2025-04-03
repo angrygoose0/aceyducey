@@ -741,34 +741,34 @@ export function useGameAccount() {
 
         const observationStateSeeds = [
           Buffer.from("observation"),
-          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          CLUBMOON_POOL_ID.toBuffer(),
         ]
 
         const [observationState] = await PublicKey.findProgramAddressSync(
           observationStateSeeds,
-          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+          RAYDIUM_CPMM_PROGRAM_ID,
         );
 
         const inputVaultSeeds = [
           Buffer.from("pool_vault"),
-          DEV_CLUBMOON_POOL_ID.toBuffer(),
+          CLUBMOON_POOL_ID.toBuffer(),
           NATIVE_MINT.toBuffer(),
         ];
 
         const inputVault = await PublicKey.findProgramAddressSync(
           inputVaultSeeds,
-          RAYDIUM_DEVNET_CPMM_PROGRAM_ID
+          RAYDIUM_CPMM_PROGRAM_ID
         )[0];
 
         const outputVaultSeeds = [
           Buffer.from("pool_vault"),
-          DEV_CLUBMOON_POOL_ID.toBuffer(),
-          DEV_CLUBMOON_MINT.toBuffer(),
+          CLUBMOON_POOL_ID.toBuffer(),
+          CLUBMOON_MINT.toBuffer(),
         ];
 
         const outputVault = await PublicKey.findProgramAddressSync(
           outputVaultSeeds,
-          RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
+          RAYDIUM_CPMM_PROGRAM_ID,
         )[0];
 
 
@@ -776,12 +776,11 @@ export function useGameAccount() {
         const next = await program.methods
         .nextTurn()
         .accounts({
-          cpSwapProgram: RAYDIUM_DEVNET_CPMM_PROGRAM_ID,
           signer: publicKey,
-          clubmoonMint: DEV_CLUBMOON_MINT,
+          clubmoonMint: CLUBMOON_MINT,
           solanaMint: NATIVE_MINT,
-          ammConfig: DEV_AMM_CONFIG,
-          poolState: DEV_CLUBMOON_POOL_ID,
+          ammConfig: AMM_CONFIG,
+          poolState: CLUBMOON_POOL_ID,
           inputVault: inputVault,
           outputVault: outputVault,
           observationState: observationState,
