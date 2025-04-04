@@ -90,7 +90,6 @@ function PlayerCard({ accountKey, index, midpoint, count, gameAccount }: {
     >
       <p className="font-bold text-xl">{playerAccount.userName}</p>
       <p className="mt-2 text-md">{shortenString(playerAccount.user.toBase58())}</p>
-      <p>{playerAccount.id.toNumber()}</p>
       {(playerAccount.id.eq(gameAccount.currentPlayerId)) && 
         gameAccount.card1 !== 0 && 
         gameAccount.card2 !== 0 && (
@@ -608,7 +607,7 @@ export function ShowGame() {
 
 
 
-      
+      {/*
       <pre>
         {JSON.stringify(
           Object.fromEntries(
@@ -618,6 +617,7 @@ export function ShowGame() {
           2
         )}
       </pre>
+      */}
       
       
     
