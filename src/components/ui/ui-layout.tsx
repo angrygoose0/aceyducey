@@ -89,7 +89,7 @@ export function UiLayout({ children, links }: { children: ReactNode; links: { la
                 </a>
               </div>
 
-                <InitGameButton />
+                {/*<InitGameButton />*/}
 
               
             </div>
