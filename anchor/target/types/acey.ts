@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/acey.json`.
  */
 export type Acey = {
-  "address": "Gcimy3ZYCVF66FW9KU2i4XokamktDXr4FtHLAEtzXiuQ",
+  "address": "87FB3XA9xBPzQq1zoEHSdECUmDpRG32x7EC87YrLLPU2",
   "metadata": {
     "name": "acey",
     "version": "0.1.0",

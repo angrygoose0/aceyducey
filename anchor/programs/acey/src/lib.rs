@@ -21,7 +21,7 @@ use raydium_cpmm_cpi::{
 
 pub const RAYDIUM_CP_SWAP_PROGRAM_ID_DEVNET: Pubkey = pubkey!("CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW");
 
-declare_id!("Gcimy3ZYCVF66FW9KU2i4XokamktDXr4FtHLAEtzXiuQ");
+declare_id!("87FB3XA9xBPzQq1zoEHSdECUmDpRG32x7EC87YrLLPU2");
 
 #[program]
 pub mod acey {
