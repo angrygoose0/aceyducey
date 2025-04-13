@@ -40,7 +40,7 @@ pub mod acey {
     pub const ADMIN_PUBLIC_KEY: Pubkey = pubkey!("6gkkRU5t8WfXHWNuc6zQ7FoQxybcigLvzJKLz7Z1tGg");
     pub const FEE_PERCENTAGE: u8 = 100; // divide by 100 so 1%
 
-    pub const MINIMUM_POT: u64 = 10_000_000; //0.01 sol
+    pub const MINIMUM_POT: u64 = 100_000_000; //0.1 sol
 
     pub fn init_game(
         ctx: Context<InitializeGame>,
